@@ -1,0 +1,144 @@
+<div id="auth-modal" class="react-modal-overlay simple-modal">
+    <div class="modal-content auth-modal-content">
+        <button id="close-auth-modal-button" class="modal-close" aria-label="Close modal">&times;</button>
+        
+        <div id="auth-forms-view">
+            <h2 class="auth-title">Welcome to Blitz</h2>
+            
+            <div class="auth-tabs">
+                <button class="auth-tab-link active" data-target-form="login-form-modal">Log In</button>
+                <button class="auth-tab-link" data-target-form="register-form-modal">Sign Up</button>
+            </div>
+
+            <form id="login-form-modal" class="auth-form-modal active" action="{{ url_for('auth.login') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div id="login-error-message" class="flash error" style="display: none;"></div>
+                
+                <div class="form-group">
+                    <label for="login-email">Email Address</label>
+                    <input type="email" id="login-email" name="email" required placeholder="you@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="login-password" name="password" required placeholder="••••••••">
+                        <i class="fa-regular fa-eye password-toggle-icon" data-target="login-password"></i>
+                    </div>
+                    <a href="#" id="forgot-password-link" class="forgot-pass-link">Forgot Password?</a>
+                </div>
+
+                <button type="submit" class="cta">Log In</button>
+
+                <div class="google-auth-wrapper">
+                    <span class="or-divider">OR</span>
+                    <a href="{{ url_for('auth.google_login') }}" class="google-btn">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                        <span>Sign in with Google</span>
+                    </a>
+                </div>
+            </form>
+
+            <form id="register-form-modal" class="auth-form-modal" action="{{ url_for('auth.register') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div id="register-error-message" class="flash error" style="display: none;"></div>
+
+                <div class="provider-alert-box">
+                    <p>
+                        Looking to become a service provider?<br>
+                        <a href="{{ url_for('main.pricing') }}">Join as a Partner</a>.
+                    </p>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-name">Full Name</label>
+                    <input type="text" id="register-name" name="full_name" required placeholder="John Doe">
+                </div>
+
+                <div class="form-group">
+                    <label for="register-email-input">Email Address</label>
+                    <input type="email" id="register-email-input" name="email" required placeholder="you@example.com">
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password">Create Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-password" name="password" required placeholder="Create a strong password">
+                        <i class="fa-regular fa-eye password-toggle-icon" data-target="register-password"></i>
+                    </div>
+                    
+                    <ul class="password-requirements">
+                        <li id="req-length" class="invalid"><i class="fa-solid fa-circle-check"></i> 8+ Characters</li>
+                        <li id="req-upper" class="invalid"><i class="fa-solid fa-circle-check"></i> Uppercase</li>
+                        <li id="req-lower" class="invalid"><i class="fa-solid fa-circle-check"></i> Lowercase</li>
+                        <li id="req-number" class="invalid"><i class="fa-solid fa-circle-check"></i> Number</li>
+                        <li id="req-special" class="invalid"><i class="fa-solid fa-circle-check"></i> Special Char (!@#$%)</li>
+                    </ul>
+                </div>
+
+                <div class="form-group">
+                    <label for="register-password-confirm">Confirm Password</label>
+                    <div class="password-wrapper">
+                        <input type="password" id="register-password-confirm" required placeholder="Repeat password">
+                        <i class="fa-regular fa-eye password-toggle-icon" data-target="register-password-confirm"></i>
+                    </div>
+                    <small id="match-text" style="display:none; color: #dc3545; font-size: 0.8rem; margin-top: 5px;">Passwords do not match</small>
+                </div>
+
+                <button type="submit" id="register-btn" class="cta">Create Account</button>
+                
+                <div class="google-auth-wrapper">
+                    <span class="or-divider">OR</span>
+                    <a href="{{ url_for('auth.google_login') }}" class="google-btn">
+                        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+                        <span>Sign up with Google</span>
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div id="auth-forgot-view" style="display: none;">
+            <h2 class="auth-title">Reset Password</h2>
+            <p style="text-align:center; color:#666; margin-bottom:25px; font-size: 0.95rem; line-height: 1.5;">
+                Enter the email address associated with your account, and we’ll send you a link to reset your password.
+            </p>
+            
+            <form id="forgot-password-form" class="auth-form-modal active" style="display: flex;">
+                <div id="forgot-error-message" class="flash error" style="display: none;"></div>
+                
+                <div class="form-group">
+                    <label for="forgot-email">Email Address</label>
+                    <input type="email" id="forgot-email" name="email" required placeholder="you@example.com">
+                </div>
+                
+                <button type="submit" id="forgot-btn" class="cta">Send Instructions</button>
+                
+                <div style="text-align: center; margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                    <a href="#" id="back-to-login-link" style="color: #64748b; font-size: 0.9rem; text-decoration: none; font-weight: 600;">
+                        &larr; Back to Log In
+                    </a>
+                </div>
+            </form>
+        </div>
+
+        <div id="auth-success-view" style="display: none; text-align: center; padding: 20px 0;">
+            <div style="font-size: 3rem; color: #10b981; margin-bottom: 20px;">
+                <i class="fa-regular fa-envelope"></i>
+            </div>
+            <h2 id="success-title" style="color: #333; margin-bottom: 15px;">Verify Your Email</h2>
+            <p id="success-message" style="color: #666; font-size: 0.95rem; margin-bottom: 30px;">
+                Please check your email, confirm by clicking the link and let's get you setup and ready to book a blitz pro.
+            </p>
+            
+            <div id="resend-container">
+                <strong id="success-email-display" style="display:block; color: #333; margin-bottom: 15px;"></strong>
+                <button id="resend-email-btn" class="cta secondary" style="background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1;">
+                    Resend Email
+                </button>
+                <p id="resend-message" style="margin-top: 10px; font-size: 0.85rem; height: 20px;"></p>
+            </div>
+            
+            <button id="success-close-btn" class="cta" style="margin-top:20px; display:none;">Close</button>
+        </div>
+    </div>
+</div>

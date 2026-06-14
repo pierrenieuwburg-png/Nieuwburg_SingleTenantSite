@@ -1,0 +1,61 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Edit Client{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Edit: {{ client.profile.full_name or client.email }}</h1>
+    <div>
+        <a href="{{ url_for('admin_view_client', user_id=client.id) }}" class="cta-outline">← Back</a>
+        <a href="{{ url_for('admin_clients') }}" class="cta-outline">Back to Client List</a>
+    </div>
+</div>
+
+<div class="admin-section">
+    <form method="POST" class="profile-form" style="max-width: 600px; margin: 0;">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            {{ form.full_name.label }}
+            {{ form.full_name(class="form-control") }}
+        </div>
+        <div class="form-group">
+            <label for="email">Email (Cannot be changed)</label>
+            <input type="email" id="email" name="email" value="{{ client.email }}" disabled class="form-control">
+        </div>
+        <div class="form-group">
+            {{ form.phone_number.label }}
+            {{ form.phone_number(class="form-control") }}
+        </div>
+        <div class="form-group">
+            {{ form.address.label }}
+            {{ form.address(rows=3, class="form-control") }}
+        </div>
+        
+        <hr>
+        
+        <div class="form-group">
+            <label for="service_frequency">Service Frequency</label>
+            <select id="service_frequency" name="service_frequency" class="form-control">
+                <option value="" {% if not client.profile.service_frequency %}selected{% endif %}>-- Not Set --</option>
+                <option value="Once-Off" {% if client.profile.service_frequency == 'Once-Off' %}selected{% endif %}>Once-Off</option>
+                <option value="Weekly" {% if client.profile.service_frequency == 'Weekly' %}selected{% endif %}>Weekly</option>
+                <option value="Bi-Weekly" {% if client.profile.service_frequency == 'Bi-Weekly' %}selected{% endif %}>Bi-Weekly</option>
+                <option value="Tri-Weekly" {% if client.profile.service_frequency == 'Tri-Weekly' %}selected{% endif %}>Tri-Weekly</option>
+                <option value="Monthly" {% if client.profile.service_frequency == 'Monthly' %}selected{% endif %}>Monthly</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="service_fee">Service Fee (R)</label>
+            <input type="number" step="0.01" id="service_fee" name="service_fee" value="{{ client.profile.service_fee or '' }}" class="form-control">
+        </div>
+
+        <hr>
+
+        <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="6" class="form-control">{{ client.profile.notes or '' }}</textarea>
+        </div>
+
+        <input type="submit" value="Update Client" class="cta">
+    </form>
+</div>
+{% endblock %}

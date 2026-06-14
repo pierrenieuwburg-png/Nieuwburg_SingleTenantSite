@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>New Quote Request</title>
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { width: 90%; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .header { text-align: center; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .content { margin-top: 20px; }
+        .content h2 { color: #002244; }
+        .details { background-color: #f9f9f9; padding: 15px; border-radius: 5px; }
+        .details p { margin: 5px 0; }
+        .details strong { min-width: 120px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Nieuwburg Blitz Logo" style="max-width: 200px;">
+            {% endif %}
+            <h2>New Specialized Quote Request</h2>
+        </div>
+        <div class="content">
+            <p>A new specialized quote request has been submitted through the website.</p>
+            
+            <div class="details">
+                <p><strong>Name:</strong> {{ data.name }}</p>
+                <p><strong>Email:</strong> {{ data.email }}</p>
+                <p><strong>Phone:</strong> {{ data.phone }}</p>
+                <p><strong>Address:</strong> {{ data.address | default('Not provided') }}</p>
+                <p><strong>Service Type:</strong> {{ category_name }}</p>
+                <p><strong>Description:</strong></p>
+                <p>{{ data.description | nl2br }}</p>
+            </div>
+            
+            <p style="text-align: center; margin-top: 20px;">
+                You can view and manage this quote in the Admin Dashboard.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

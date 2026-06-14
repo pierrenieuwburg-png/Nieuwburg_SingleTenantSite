@@ -1,0 +1,54 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>{{ title }}</h1>
+    <a href="{{ url_for('admin_bookings') }}" class="cta-outline">Back to Bookings</a>
+</div>
+
+<div class="admin-section">
+    <h3>Client & Request Details</h3>
+    <div class="profile-details">
+        <div class="detail-item"><label>Client</label><p>{{ quote_request.user.profile.full_name or quote_request.user.email }}</p></div>
+        <div class="detail-item"><label>Service Requested</label><p>{{ quote_request.primary_service }}</p></div>
+        <div class="detail-item"><label>Property Type</label><p>{{ quote_request.property_type }}</p></div>
+        <div class="detail-item"><label>Contact</label><p>{{ quote_request.user.email }} | {{ quote_request.user.profile.phone_number or 'N/A' }}</p></div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <form method="POST" class="profile-form" style="max-width: 800px; margin: 0;">
+        {{ form.hidden_tag() }}
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px;">
+            <div class="form-group">
+                {{ form.scheduled_date.label }}
+                {{ form.scheduled_date(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.start_time.label }}
+                {{ form.start_time(class="form-control") }}
+            </div>
+            <div class="form-group">
+                {{ form.end_time.label }}
+                {{ form.end_time(class="form-control") }}
+            </div>
+        </div>
+
+        <div class="form-group" style="margin-top: 20px;">
+            {{ form.assigned_staff.label }}
+            <p style="font-size: 0.8rem; color: #666; margin: 0 0 5px;">Hold Ctrl (or Cmd on Mac) to select multiple staff members.</p>
+            {{ form.assigned_staff(class="form-control", style="height: 150px;") }}
+        </div>
+        
+        <div class="form-group" style="margin-top: 20px;">
+            {{ form.notes.label }}
+            {{ form.notes(class="form-control", rows=6) }}
+        </div>
+
+        <div style="margin-top: 30px;">
+            {{ form.submit(class="cta") }}
+        </div>
+    </form>
+</div>
+{% endblock %}

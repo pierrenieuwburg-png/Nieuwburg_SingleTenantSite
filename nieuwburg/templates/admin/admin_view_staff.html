@@ -1,0 +1,103 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}View Staff{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>{{ staff_member.profile.full_name or staff_member.email }}</h1>
+    <div>
+        {# --- FIX 1 --- #}
+        <a href="{{ url_for('admin.staff') }}" class="cta-outline">← Back to Staff List</a>
+        <a href="{{ url_for('admin.edit_staff', user_id=staff_member.id) }}" class="cta">Edit Details</a>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-messages" style="margin-bottom: 20px;">
+  {% for category, message in messages %}
+  <div class="flash {{ category }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="admin-section">
+    <h2>Personal Details</h2>
+    <div class="profile-details">
+        <div class="detail-item"><label>Full Name</label><p>{{ staff_member.profile.full_name or 'N/A' }}</p></div>
+        {# Removed username as it's not in the model #}
+        <div class="detail-item"><label>Email</label><p>{{ staff_member.email or 'N/A' }}</p></div>
+        <div class="detail-item"><label>Phone Number</label><p>{{ staff_member.profile.phone_number or 'N/A' }}</p></div>
+        <div class="detail-item"><label>Physical Address</label><p>{{ staff_member.profile.address or 'N/A' }}</p></div>
+        <hr>
+        <div class="detail-item"><label>ID Number</label><p>{{ staff_member.profile.id_number or 'N/A' }}</p></div>
+        <div class="detail-item"><label>Date of Birth</label><p>{{ staff_member.profile.date_of_birth.strftime('%d %B %Y') if staff_member.profile.date_of_birth else 'N/A' }}</p></div>
+        <div class="detail-item"><label>Age</label><p>{{ age or 'N/A' }}</p></div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2>Strengths & Skills</h2>
+    <div class="notes-display">
+        <p style="white-space: pre-wrap;">{{ staff_member.profile.strengths or 'No strengths have been noted.' }}</p>
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2>Vetting Status</h2>
+    <div class="vetting-status-list">
+        <div class="vetting-item">
+            <span class="status-icon">{% if staff_member.profile.has_id_copy %}✅{% else %}❌{% endif %}</span>
+            <span>Copy of ID on file</span>
+        </div>
+        <div class="vetting-item">
+            <span class="status-icon">{% if staff_member.profile.has_drivers_license %}✅{% else %}❌{% endif %}</span>
+            <span>Driver's license on file</span>
+        </div>
+        <div class="vetting-item">
+            <span class="status-icon">{% if staff_member.profile.has_criminal_check %}✅{% else %}❌{% endif %}</span>
+            <span>Criminal record check complete</span>
+        </div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2>Uploaded Documents</h2>
+    <div class="documents-list">
+        {% if staff_member.profile.documents %}
+            <ul>
+            {% for doc_filename in staff_member.profile.documents %}
+                <li>
+                    {# Corrected file path logic to show original filename #}
+                    <a href="{{ url_for('static', filename='uploads/' + doc_filename) }}" target="_blank">{{ doc_filename.split('_', 1)[-1] or doc_filename }}</a>
+                </li>
+            {% endfor %}
+            </ul>
+        {% else %}
+            <p>No documents have been uploaded for this staff member.</p>
+        {% endif %}
+    </div>
+</div>
+<div class="admin-section">
+    <h2>Notes</h2>
+    <div class="notes-display">
+        <p style="white-space: pre-wrap;">{{ staff_member.profile.notes or 'No notes have been added for this staff member.' }}</p>
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2 style="color: #c82333;">Danger Zone</h2>
+    {# --- FIX 2 --- #}
+    <form action="{{ url_for('admin.reset_staff_password', user_id=staff_member.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to reset this staff member\'s password?');" style="margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid #eee;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p>Generate a new activation link and require the staff member to set a new password on their next login.</p>
+        <button type="submit" class="cta-outline">Reset Password</button>
+    </form>
+    {# --- FIX 3 --- #}
+    <form action="{{ url_for('admin.delete_staff', user_id=staff_member.id) }}" method="POST" onsubmit="return confirm('DANGER: You are about to permanently delete this staff member. This action cannot be undone. Are you absolutely sure?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p>Permanently remove this staff member and all associated data from the system.</p>
+        <button type="submit" class="cta-danger">Delete Staff Member</button>
+    </form>
+</div>
+{% endblock %}

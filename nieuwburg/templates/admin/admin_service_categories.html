@@ -1,0 +1,74 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Service Categories{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Service & Pricing Categories</h1>
+    {# Corrected url_for link #}
+    <a href="{{ url_for('admin.admin_add_service_category') }}" class="cta">Add New Category</a>
+</div>
+
+<div class="admin-section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Category Name</th>
+                <th>Pricing Method</th>
+                <th style="width: 120px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for cat in categories %}
+            <tr>
+                <td><strong>{{ cat.name }}</strong><br><small style="color: #666;">{{ cat.description }}</small></td>
+                <td>{{ cat.calculation_method.replace('_', ' ')|title }}</td>
+                <td>
+                    <div class="action-dropdown">
+                        <button class="action-dropdown-btn" onclick="toggleDropdown(this)"></button>
+                        <div class="action-dropdown-content">
+                            {# Also ensure these url_for calls have the admin prefix #}
+                            <a href="{{ url_for('admin.admin_manage_category_items', category_id=cat.id) }}">Manage Items</a>
+                            <a href="{{ url_for('admin.admin_edit_service_category', category_id=cat.id) }}">Edit Category</a>
+                            <form action="{{ url_for('admin.admin_delete_service_category', category_id=cat.id) }}" method="POST" onsubmit="return confirm('Are you sure? This will delete the category and all items within it.');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" style="color: #dc3545;">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="3" style="text-align: center; padding: 20px;">No service categories have been created yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %} {# End of block content #}
+
+{# Moved the script into the scripts block and added the closing endblock tag #}
+{% block scripts %}
+{{ super() }} {# Include scripts from the base template if needed #}
+<script>
+function toggleDropdown(button) {
+    // Close all other dropdowns first
+    document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
+        if (dropdown !== button.parentElement) {
+            dropdown.classList.remove('open');
+        }
+    });
+    // Then toggle the one that was clicked
+    button.parentElement.classList.toggle('open');
+}
+
+// Global click listener to close dropdowns
+window.addEventListener('click', function(event) {
+    if (!event.target.matches('.action-dropdown-btn')) {
+        document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
+            dropdown.classList.remove('open');
+        });
+    }
+});
+</script>
+{% endblock %} {# Correctly closed the scripts block #}

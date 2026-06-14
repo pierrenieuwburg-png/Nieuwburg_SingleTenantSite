@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block title %}Payment Successful - Check Your Email{% endblock %}
+
+{% block content %}
+<section class="container" style="padding-top: 60px; padding-bottom: 80px; max-width: 600px;">
+    
+    <div style="text-align: center; margin-bottom: 30px; background-color: #f9fafb; padding: 40px; border-radius: 12px; border: 1px solid var(--border-color);">
+        <h1 class="section-title" style="margin-bottom: 20px;">
+            <i class="fa fa-check-circle" style="color: #28a745; font-size: 2.5rem; margin-bottom: 15px;"></i>
+            <br>
+            Payment Successful!
+        </h1>
+        <p class="section-subtitle" style="margin: 0; max-width: 100%; line-height: 1.7;">
+            Thank you for subscribing. We've just sent a confirmation link to your email address.
+            <br><br>
+            <strong>Please click the link in that email</strong> to activate your account and access your new dashboard.
+        </p>
+    </div>
+</section>
+{% endblock %}

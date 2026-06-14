@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}The Blitz Blog - Nieuwburg Blitz{% endblock %}
+{% block content %}
+<section class="container page-blog" style="padding-top: 60px; padding-bottom: 60px;">
+
+  <div style="text-align: center; margin-bottom: 40px;">
+    <h1 class="section-title" style="margin-bottom: 10px;">The Blitz Blog</h1>
+    <p class="section-subtitle">Cleaning Tips, Company News, and More</p>
+  </div>
+<a href="{{ url_for('main.index') }}" style="color: var(--text-light); text-decoration: none; font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 25px;">‹ Back to Home</a>
+  <div class="posts-grid">
+    {% for post in posts %}
+    <article class="post-card">
+      <h3><a href="{{ url_for('post_detail', post_id=post.id) }}">{{ post.title }}</a></h3>
+      <p>{{ post.excerpt or post.content[:150] + '...' }}</p>
+      <time>{{ post.created_date.strftime('%d %B %Y') }}</time>
+    </article>
+    {% else %}
+    <p style="text-align: center; grid-column: 1 / -1;">There are no blog posts yet. Check back soon!</p>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

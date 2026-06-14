@@ -1,0 +1,79 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Invoices{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Invoice Management</h1>
+    <a href="{{ url_for('admin.admin_create_invoice') }}" class="cta">Create New Invoice</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-messages" style="margin-bottom: 20px;">
+    {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="admin-section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Invoice #</th>
+                <th>Client</th>
+                <th>Date</th>
+                <th>Total</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for invoice in invoices %}
+            <tr>
+                <td>{{ invoice.invoice_number }}</td>
+                <td>{{ invoice.user.profile.full_name or invoice.user.email if invoice.user else 'N/A' }}</td>
+                <td>{{ invoice.invoice_date.strftime('%d %b %Y') }}</td>
+                <td>R{{ "%.2f"|format(invoice.total) }}</td>
+                <td class="action-buttons">
+                    <div class="action-dropdown">
+                        <button class="action-dropdown-btn" onclick="toggleDropdown(this)"></button>
+                        <div class="action-dropdown-content">
+                            <a href="{{ url_for('admin.view_invoice', invoice_id=invoice.id) }}">View</a>
+                            <a href="{{ url_for('admin.edit_invoice', invoice_id=invoice.id) }}">Edit</a>
+                            <a href="{{ url_for('admin.download_invoice_pdf', invoice_id=invoice.id) }}">Download PDF</a>
+                            <form action="{{ url_for('admin.delete_invoice', invoice_id=invoice.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to delete this invoice?');">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="delete-action">Delete</button>
+                            </form>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;" class="no-results-row">No invoices found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function toggleDropdown(button) {
+    document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
+        if (dropdown !== button.parentElement) {
+            dropdown.classList.remove('open');
+        }
+    });
+    button.parentElement.classList.toggle('open');
+}
+window.onclick = function(event) {
+    if (!event.target.matches('.action-dropdown-btn')) {
+        document.querySelectorAll('.action-dropdown.open').forEach(dropdown => {
+            dropdown.classList.remove('open');
+        });
+    }
+}
+</script>
+{% endblock %}

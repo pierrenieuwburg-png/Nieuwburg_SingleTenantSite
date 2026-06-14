@@ -1,0 +1,19 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Clients{% endblock %}
+
+{% block content %}
+... (HTML remains the same) ...
+{% endblock %} {# End block content #}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Load the external initialization script
+    (function() {
+        const s = document.createElement('script');
+        s.src = "{{ url_for('static', filename='js/clients_init.js') }}";
+        s.async = false; 
+        document.body.appendChild(s);
+    })();
+</script>
+{% endblock %}

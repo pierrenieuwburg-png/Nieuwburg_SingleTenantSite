@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Full-Time Nanny Placement{% endblock %}
+
+{% block content %}
+<section class="container" style="padding-top: 60px; padding-bottom: 60px; max-width: 800px;">
+    <div style="margin-bottom: 30px;">
+        <a href="{{ url_for('main.index') }}" style="color: var(--text-light); text-decoration: none; font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 15px;">‹ Back to Home</a>
+        <h1 class="section-title" style="text-align: left; margin-bottom: 10px;">Full-Time Nanny Placement</h1>
+        <p class="section-subtitle" style="text-align: left; margin: 0; max-width: 100%;">Discover trustworthy, caring, and experienced support for your children and family. We connect you with nannies who provide a safe, nurturing, and enriching environment.</p>
+    </div>
+
+    <div style="line-height: 1.8;">
+        <h3>Finding the Perfect Carer for Your Children</h3>
+        <p>Your children's well-being is our top priority. We specialize in placing nannies who are passionate about childcare and have a proven track record of reliability and professionalism.</p>
+        <ul>
+            <li><strong>Safety First:</strong> All candidates have up-to-date first aid training and have passed comprehensive criminal background checks.</li>
+            <li><strong>Experience Matters:</strong> We verify employment history and speak with references to ensure each candidate has the experience your family needs.</li>
+            <li><strong>Matching Philosophies:</strong> We discuss your parenting style and values to find a nanny who will be a seamless extension of your family unit.</li>
+        </ul>
+        <div style="text-align: center; margin-top: 50px;">
+            <a href="{{ url_for('main.placement_apply', service_type='nanny') }}" class="cta cta-large">Find a Nanny</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

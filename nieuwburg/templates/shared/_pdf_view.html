@@ -1,0 +1,151 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ doc_type }} {{ document.quote_number or document.invoice_number }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            color: #333;
+        }
+        h1, h2, h3 {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-weight: bold;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .logo {
+            width: 120px;
+        }
+        .title {
+            text-align: right;
+        }
+        .title h1 {
+            margin: 0;
+            font-size: 36px;
+        }
+        .details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .line-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .line-items-table th, .line-items-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .line-items-table th {
+            background-color: #f5f5f5;
+        }
+        .totals {
+            margin-top: 20px;
+            width: 40%;
+            margin-left: auto;
+        }
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+        }
+        .totals-row.grand-total {
+            font-weight: bold;
+            font-size: 14px;
+            background-color: #f5f5f5;
+            border-top: 2px solid #333;
+        }
+        .terms-section {
+            padding-top: 1cm;
+        }
+        .terms-section h2 {
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="file://{{ logo_url }}" alt="Nieuwburg Blitz Logo" class="logo">
+        <div class="title">
+            <h1>{{ doc_type | upper }}</h1>
+            <p><strong>{{ doc_type }} Number:</strong> {{ document.quote_number or document.invoice_number }}</p>
+            <p><strong>Date:</strong> {{ (document.quote_date or document.invoice_date).strftime('%d %b %Y') }}</p>
+            {% if doc_type == 'Quote' and document.expiry_date %}
+                <p><strong>Valid Until:</strong> {{ document.expiry_date.strftime('%d %B %Y') }}</p>
+            {% elif doc_type == 'Invoice' and document.due_date %}
+                <p><strong>Due Date:</strong> {{ document.due_date.strftime('%d %b %Y') }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="details">
+        <div>
+            <h3>Billed To:</h3>
+            {% if document.user and document.user.profile %}
+                <p><strong>{{ document.user.profile.full_name or document.user.email }}</strong></p>
+                <p>{{ document.user.profile.address or 'No address on file' }}</p>
+                <p>{{ document.user.email }}</p>
+            {% elif document.guest_name %}
+                <p><strong>{{ document.guest_name }}</strong> (Guest)</p>
+                <p>{{ document.guest_address or 'No address provided' }}</p>
+            {% endif %}
+        </div>
+        <div style="text-align: right;">
+            <h3>From:</h3>
+            <p><strong>Nieuwburg Blitz</strong></p>
+            <p>24 A 5, Parow Park, Balfour Street</p>
+            <p>Cape Town, Western Cape, 7500</p>
+        </div>
+    </div>
+    <table class="line-items-table">
+        <thead>
+            <tr>
+                <th>Description</th>
+                <th style="width: 100px;">Quantity</th>
+                <th style="width: 120px;">Unit Price</th>
+                <th style="width: 120px; text-align: right;">Amount</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in document.line_items %}
+            <tr>
+                <td>{{ item.description|replace('\n', '<br>')|safe }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>R{{ "%.2f"|format(item.unit_price) }}</td>
+                <td style="text-align: right;">R{{ "%.2f"|format(item.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    <div class="totals">
+        <div class="totals-row">
+            <span>Subtotal</span>
+            <span>R{{ "%.2f"|format(document.subtotal) }}</span>
+        </div>
+        {% if document.discount_value and document.discount_value > 0 %}
+        <div class="totals-row">
+            <span>Discount</span>
+            <span>- R{{ "%.2f"|format(document.discount_value) }}</span>
+        </div>
+        {% endif %}
+        <div class="totals-row grand-total">
+            <span>TOTAL</span>
+            <span>R{{ "%.2f"|format(document.total) }}</span>
+        </div>
+    </div>
+</body>
+</html>

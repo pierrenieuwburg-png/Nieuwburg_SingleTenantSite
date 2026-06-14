@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Admin{% endblock %} - Nieuwburg Blitz</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin-assets/index.css') }}">
+  <script src="https://cdn.tiny.cloud/1/1z73jx2kzcb4ys98fgz5g9y0npcli2yixbchybeswrm4z4af/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+</head>
+<body class="admin-body">
+  <div class="admin-layout">
+     <aside class="admin-sidebar">
+       <div class="admin-brand">
+        <img src="{{ url_for('static', filename='img/LogoBlackWithTitle.png') }}" alt="Nieuwburg Blitz Logo">
+        <span>Admin Panel</span>
+      </div>
+      <nav class="admin-nav" id="admin-nav">
+        {# Keep sidebar links - React/Vue router will intercept these #}
+        <a href="{{ url_for('admin.admin_spa_shell', path='dashboard') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='dashboard') }}"><i class="fa-solid fa-chart-line fa-fw"></i>Dashboard</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='bookings') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='bookings') }}"><i class="fa-solid fa-calendar-check fa-fw"></i>Bookings</a>
+        <hr class="nav-divider">
+        <a href="{{ url_for('admin.admin_spa_shell', path='clients') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='clients') }}"><i class="fa-solid fa-users fa-fw"></i>Clients</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='staff') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='staff') }}"><i class="fa-solid fa-user-tie fa-fw"></i>Staff</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='applications') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='applications') }}"><i class="fa-solid fa-user-plus fa-fw"></i>Blitz Applications</a>
+        <hr class="nav-divider">
+        <a href="{{ url_for('admin.admin_spa_shell', path='quotes') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='quotes') }}"><i class="fa-solid fa-file-invoice fa-fw"></i>Quotes</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='invoices') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='invoices') }}"><i class="fa-solid fa-file-invoice-dollar fa-fw"></i>Invoices</a>
+        <hr class="nav-divider">
+        <a href="{{ url_for('admin.admin_spa_shell', path='services') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='services') }}"><i class="fa-solid fa-spray-can-sparkles fa-fw"></i>Services</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='blog') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='blog') }}"><i class="fa-solid fa-newspaper fa-fw"></i>Blog</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='activity-log') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='activity-log') }}"><i class="fa-solid fa-clipboard-list fa-fw"></i>Activity Log</a>
+        <a href="{{ url_for('admin.admin_spa_shell', path='settings') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='settings') }}"><i class="fa-solid fa-cogs fa-fw"></i>Business Settings</a>
+      </nav>
+      <div class="admin-sidebar-footer">
+        <a href="{{ url_for('auth.profile') }}" class="admin-nav-link"><i class="fa-solid fa-user-pen fa-fw"></i>Edit My Profile</a>
+        <a href="{{ url_for('main.index') }}" class="admin-nav-link"><i class="fa-solid fa-globe fa-fw"></i>View Public Site</a>
+        <a href="{{ url_for('auth.logout') }}" class="admin-nav-link"><i class="fa-solid fa-right-from-bracket fa-fw"></i>Logout</a>
+      </div>
+    </aside>
+    <main class="admin-main-content" id="admin-main-content">
+      {# Root element for the JavaScript framework to mount onto #}
+      <div id="admin-app-root"></div>
+    </main>
+  </div>
+
+  {# Placeholder for JS Framework Bundle - Load as module #}
+  <script type="module" src="{{ url_for('static', filename='admin-assets/index.js') }}"></script>
+
+  {# Remove the old dynamic loading script block #}
+  {# {% block scripts %} ... removed ... {% endblock %} #}
+
+</body>
+</html>

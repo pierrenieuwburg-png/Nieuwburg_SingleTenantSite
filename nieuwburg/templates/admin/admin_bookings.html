@@ -1,0 +1,240 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Bookings & Scheduling{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Bookings & Scheduling</h1>
+    <p>Manage incoming requests and schedule new jobs.</p>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-messages" style="margin-bottom: 20px;">
+      {% for category, message in messages %}
+        <div class="flash {{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<div class="admin-section">
+    <h2>Schedule Overview</h2>
+    <div id="calendar" style="max-width: 1100px; margin: 0 auto;" data-events='{{ events_json | safe }}'></div>
+</div>
+
+<div class="admin-section">
+    <h2>Scheduled & In-Progress Jobs</h2>
+    <table class="data-table" id="jobs-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Service</th>
+                <th>Status</th>
+                <th>Assigned Staff</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in current_jobs %}
+            <tr id="job-row-{{ job.id }}">
+                <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
+                <td>
+                    {% if job.quote_request and job.quote_request.user %}
+                    {{ job.quote_request.user.profile.full_name or job.quote_request.user.email }}
+                    {% else %}
+                        N/A
+                    {% endif %}
+                </td>
+                <td>{{ job.quote_request.primary_service }}</td>
+                <td>
+                    <span id="status-badge-{{ job.id }}" class="booking-status status-{{ job.status.lower() }}">{{ job.status }}</span>
+                </td>
+                <td>
+                    {% if job.assigned_staff %}
+                        {{ job.assigned_staff|map(attribute='profile.full_name')|join(', ') }}
+                    {% else %}
+                        <span style="color: #999;">None</span>
+                    {% endif %}
+                </td>
+                <td class="action-buttons">
+                    <a href="{{ url_for('admin_edit_job', job_id=job.id) }}" class="cta-outline-small">Edit</a>
+                    <select class="status-update-dropdown" data-job-id="{{ job.id }}">
+                        <option value="Scheduled" {% if job.status == 'Scheduled' %}selected{% endif %}>Scheduled</option>
+                        <option value="In-Progress" {% if job.status == 'In-Progress' %}selected{% endif %}>In-Progress</option>
+                        <option value="Completed" {% if job.status == 'Completed' %}selected{% endif %}>Completed</option>
+                        <option value="Cancelled" {% if job.status == 'Cancelled' %}selected{% endif %}>Cancelled</option>
+                    </select>
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px;">There are no currently scheduled jobs.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="admin-section">
+    <h2>New Confirmed Bookings</h2>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Confirmed On</th>
+                <th>Client</th>
+                <th>Service Details</th>
+                <th>Address</th>
+                <th>Final Price</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for req in requests %}
+            {# This now filters for only confirmed requests #}
+            {% if req.status == 'Confirmed' %}
+            <tr>
+                <td>{{ req.request_date.strftime('%d %b %Y, %H:%M') }}</td>
+                <td>
+                    <strong>{{ req.user.profile.full_name or req.user.email }}</strong><br>
+                    <small>{{ req.user.profile.phone_number or 'No phone' }}</small>
+                </td>
+                <td>
+                    <strong>{{ req.primary_service }}</strong> ({{ req.property_type }})
+                </td>
+                <td>{{ req.address }}</td>
+                <td><strong>R{{ "%.2f"|format(req.total_price) if req.total_price else 'N/A' }}</strong></td>
+                <td>
+                    <a href="{{ url_for('admin_create_job_from_request', request_id=req.id) }}" class="cta-outline-small">View & Schedule</a>
+                </td>
+            </tr>
+            {% endif %}
+            {% else %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px;">There are no new confirmed bookings.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="calendar-modal" class="modal-overlay simple-modal" style="--modal-bg: #212121; --text-color: #fff;">
+    <div class="modal-content" id="modal-content-wrapper">
+        </div>
+</div>
+
+<style>
+/* ... (The CSS remains identical) ... */
+    /* Modal Styling */
+    #calendar-modal {
+        background: rgba(0,0,0,0.8);
+        z-index: 2000;
+    }
+    #calendar-modal .modal-content {
+        background-color: var(--modal-bg);
+        color: var(--text-color);
+        border-radius: 16px;
+        max-width: 500px;
+        width: 95%;
+        padding: 0;
+        overflow: hidden;
+        position: relative;
+    }
+    .modal-view {
+        padding: 20px 25px 30px;
+        transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+    }
+    .modal-view.hidden {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        transform: translateX(100%);
+        opacity: 0;
+        pointer-events: none;
+    }
+    .modal-view.slide-out {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+
+    /* Day View */
+    .day-view-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+    .day-view-header h2 {
+        margin: 0; font-size: 1.8rem;
+    }
+    .day-view-header .modal-close {
+        position: static; font-size: 2rem;
+    }
+    .job-item-row {
+        display: flex;
+        gap: 15px;
+        cursor: pointer;
+        padding: 12px 0;
+        border-bottom: 1px solid #444;
+    }
+    .job-item-row:last-child { border-bottom: none; }
+    .job-item-time { font-weight: 500; }
+    .job-item-details h4 { margin: 0 0 4px; font-size: 1rem; }
+    .job-item-details p { margin: 0; color: #ccc; font-size: 0.9rem; }
+
+    /* Job Detail/Add View */
+    .job-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 20px;
+    }
+    .job-detail-header .back-btn {
+        font-size: 1.5rem; background: none; border: none; color: #fff; cursor: pointer;
+    }
+    .job-detail-header h3 { margin: 0; font-size: 1.5rem; }
+    .job-detail-form .form-group, .add-job-form .form-group { margin-bottom: 15px; }
+    .job-detail-form label, .add-job-form label { font-weight: bold; color: #aaa; font-size: 0.8rem; display: block; margin-bottom: 5px;}
+    .job-detail-form input, .job-detail-form textarea, .job-detail-form select,
+    .add-job-form input, .add-job-form textarea, .add-job-form select {
+        background: #333;
+        border: 1px solid #555;
+        color: #fff;
+        width: 100%;
+        padding: 8px;
+        border-radius: 4px;
+        box-sizing: border-box;
+    }
+    .job-detail-form select[multiple] { height: 120px; }
+    .job-detail-actions, .add-job-actions { text-align: right; margin-top: 20px;}
+
+    /* Add Job Button */
+    .add-job-fab {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        width: 50px;
+        height: 50px;
+        background-color: var(--accent);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        font-size: 24px;
+        cursor: pointer;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.13/index.global.min.js"></script>
+{% endblock %}
+{% block scripts %}
+{{ super() }}
+<script>
+    // Load the external initialization script
+    (function() {
+        const s = document.createElement('script');
+        s.src = "{{ url_for('static', filename='js/bookings_init.js') }}";
+        s.async = false; 
+        document.body.appendChild(s);
+    })();
+</script>
+{% endblock %}

@@ -1,0 +1,82 @@
+<div id="booking-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px;">
+        <button id="close-booking-modal-button" class="modal-close">&times;</button>
+        
+        <div id="booking-step-1">
+            <h2 class="auth-title">Book a Service</h2>
+            <p style="text-align: center; margin-top: -5px; margin-bottom: 25px; color: #555;">Select a category to get started.</p>
+            <div id="booking-category-list">
+                <p>Loading services...</p>
+            </div>
+             <p style="text-align: center; font-size: 0.9rem; margin-top: 20px;">
+                Need something more specific? <a href="#" id="specialized-quote-btn" style="color: var(--accent);">Request a specialized quote</a>.
+            </p>
+        </div>
+
+        <div id="booking-step-2-address" class="hidden">
+            <h2 class="auth-title">Service Address</h2>
+            <p style="text-align: center; margin-top: -15px; margin-bottom: 25px; color: #555;">Where will the service take place?</p>
+            <div class="form-group">
+                <label for="street-address">Street Address</label>
+                <input type="text" id="street-address" name="street-address" placeholder="Start typing your address...">
+            </div>
+            <div id="map"></div>
+            <div class="modal-actions" style="justify-content: space-between;">
+                <button class="cta-outline booking-back-btn" data-target-step="1">Back</button>
+                <button id="booking-address-next-btn" class="cta">Next: Service Details</button>
+            </div>
+        </div>
+
+        <div id="booking-step-3-details" class="hidden">
+             <h2 class="auth-title" id="booking-step-3-title">Service Details</h2>
+             <div id="booking-calculator-content" class="booking-calculator-form">
+                </div>
+             <div id="booking-summary-container" class="booking-summary hidden">
+                <div class="summary-item">
+                    <span>Estimated Price:</span>
+                    <strong id="booking-price-total">R0.00</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Estimated Time:</span>
+                    <strong id="booking-time-total">0 mins</strong>
+                </div>
+             </div>
+             <div class="modal-actions" style="justify-content: space-between;">
+                <button class="cta-outline booking-back-btn" data-target-step="2">Back</button>
+                <button id="booking-next-step-btn" class="cta">Next: Confirm Details</button>
+            </div>
+        </div>
+
+        <div id="booking-step-4-confirm" class="hidden">
+            <h2 class="auth-title">Confirm Your Booking</h2>
+            <div class="form-group">
+                <p><strong>Service Address:</strong> <span id="address-display-text"></span></p>
+            </div>
+            <div class="form-group">
+                <label for="booking-date">Select Date & Time</label>
+                <input type="date" id="booking-date" name="booking-date" required>
+                <select id="booking-time" name="booking-time" required disabled>
+                    <option>Please select a date first</option>
+                </select>
+            </div>
+            <hr>
+            <p>Please provide your contact details:</p>
+            <div class="form-group">
+                <label for="customer-name">Full Name</label>
+                <input type="text" id="customer-name" value="{{ current_user.profile.full_name if current_user.is_authenticated else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="customer-email">Email</label>
+                <input type="email" id="customer-email" value="{{ current_user.email if current_user.is_authenticated else '' }}" required>
+            </div>
+            <div class="form-group">
+                <label for="customer-phone">Phone Number</label>
+                <input type="tel" id="customer-phone" value="{{ current_user.profile.phone_number if current_user.is_authenticated else '' }}" required>
+            </div>
+            <div class="modal-actions" style="justify-content: space-between;">
+                <button class="cta-outline booking-back-btn" data-target-step="3">Back</button>
+                <button id="booking-confirm-btn" class="cta">Confirm & Proceed to Payment</button>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block content %}
+<section class="container" style="max-width: 800px; padding-top: 50px;">
+    <h1 style="font-size: 2.8rem; margin-bottom: 15px;">{{ post.title }}</h1>
+    <p style="color: #666; border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px;">
+        Posted on {{ post.created_date.strftime('%d %B %Y') }}
+        by {{ post.author.profile.full_name or 'Admin' }}
+    </p>
+    <div class="post-content" style="line-height: 1.7;">
+        {# The |safe filter allows HTML from your blog content to be rendered #}
+        {{ post.content|safe }}
+    </div>
+    <a href="{{ url_for('blog') }}" style="display: inline-block; margin-top: 40px;">← Back to Blog</a>
+</section>
+{% endblock %}

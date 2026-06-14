@@ -1,0 +1,52 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+
+<div class="admin-header">
+    <h1>{{ title }}</h1>
+    {# Corrected the url_for link below #}
+    <a href="{{ url_for('admin.clients') }}" class="cta-outline">Back to Client List</a>
+</div>
+
+{% include 'shared/_form_render.html' %} {# Assuming you have a form rendering template #}
+{# Or render form fields manually if _form_render.html doesn't exist #}
+{#
+<div class="admin-section form-container">
+    <form method="POST" action="">
+        {{ form.hidden_tag() }}
+        <div class="form-group">
+            {{ form.full_name.label(class="form-label") }}
+            {{ form.full_name(class="form-control", autocomplete="name") }}
+            {% if form.full_name.errors %}
+                <div class="form-error">{{ form.full_name.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.email.label(class="form-label") }}
+            {{ form.email(class="form-control", autocomplete="email") }}
+            {% if form.email.errors %}
+                <div class="form-error">{{ form.email.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="form-group">
+            {{ form.phone_number.label(class="form-label") }}
+            {{ form.phone_number(class="form-control", autocomplete="tel") }}
+            {% if form.phone_number.errors %}
+                <div class="form-error">{{ form.phone_number.errors[0] }}</div>
+            {% endif %}
+        </div>
+         <div class="form-group">
+            {{ form.address.label(class="form-label") }}
+            {{ form.address(class="form-control", rows=3, autocomplete="street-address") }}
+            {% if form.address.errors %}
+                <div class="form-error">{{ form.address.errors[0] }}</div>
+            {% endif %}
+        </div>
+        <div class="form-actions">
+            {{ form.submit(class="cta") }}
+        </div>
+    </form>
+</div>
+#}
+{% endblock %}

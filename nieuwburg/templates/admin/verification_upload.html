@@ -1,0 +1,58 @@
+{% extends "admin/admin_base.html" %}
+
+{% block content %}
+<div class="admin-container" style="max-width: 800px; margin: 0 auto; padding-top: 40px;">
+    
+    <div class="verification-header" style="text-align: center; margin-bottom: 40px;">
+        <h1 style="color: #002244; font-family: 'Oswald', sans-serif;">Get Verified & Go Live</h1>
+        <p style="color: #6b7280; font-size: 1.1rem;">
+            To ensure quality on the Blitz Marketplace, we require proof of qualification.<br>
+            Verified partners get <strong>3x more leads</strong> and a trust badge.
+        </p>
+    </div>
+
+    <div class="card" style="padding: 40px; border-radius: 12px; border: 1px solid #e5e7eb; background: white;">
+        
+        {% if tenant.verification_status == 'pending' %}
+            <div style="text-align: center; padding: 40px;">
+                <i class="fas fa-clock" style="font-size: 4rem; color: #f59e0b; margin-bottom: 20px;"></i>
+                <h2>Under Review</h2>
+                <p>We are currently reviewing your documents. You will be notified via email once approved.</p>
+                <a href="{{ url_for('admin.admin_spa_shell', path='dashboard') }}" class="cta-outline">Back to Dashboard</a>
+            </div>
+
+        {% else %}
+            <form method="POST" enctype="multipart/form-data" class="verification-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="form-section">
+                    <h3 style="border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 20px;">Required Documents</h3>
+                    
+                    <div class="form-group" style="margin-bottom: 25px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">Trade Certificate / Qualification</label>
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Required for Plumbers, Electricians, and specialized trades.</p>
+                        <input type="file" name="trade_certificate" class="form-control" accept=".pdf,.jpg,.png">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 25px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">Business Registration (CIPC)</label>
+                        <input type="file" name="business_registration" class="form-control" accept=".pdf,.jpg,.png">
+                    </div>
+
+                    <div class="form-group" style="margin-bottom: 25px;">
+                        <label style="font-weight: 600; display: block; margin-bottom: 8px;">Liability Insurance (Optional)</label>
+                        <p style="font-size: 0.85rem; color: #666; margin-bottom: 10px;">Highly recommended. Increases your trust score.</p>
+                        <input type="file" name="liability_insurance" class="form-control" accept=".pdf,.jpg,.png">
+                    </div>
+                </div>
+
+                <div class="form-actions" style="margin-top: 40px; display: flex; justify-content: flex-end; gap: 15px;">
+                    <a href="{{ url_for('admin.admin_spa_shell', path='dashboard') }}" style="padding: 12px 20px; color: #666; text-decoration: none;">Cancel</a>
+                    <button type="submit" class="cta" style="width: auto;">Submit for Verification</button>
+                </div>
+            </form>
+        {% endif %}
+    </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<section class="container profile-page">
+    <div class="profile-container">
+        <h1 class="section-title">My Profile</h1>
+        <p class="section-subtitle">Update your personal details and preferences.</p>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-messages">
+            {% for category, message in messages %}
+            <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('auth.profile') }}" enctype="multipart/form-data" class="profile-form">
+            {{ form.hidden_tag() }}
+            <div class="form-group profile-image-edit">
+                <img src="{{ url_for('static', filename='uploads/' + (user_profile.profile_image or 'avatar_picture_profile_user_icon.png')) }}" alt="Profile Preview" id="profile-preview">
+                <label for="profile_image" class="cta-outline">Change Photo</label>
+                {{ form.profile_image(class="hidden", id="profile_image") }}
+                <button type="submit" name="remove_picture" class="cta-danger-small" formnovalidate>Remove</button>
+            </div>
+            <div class="form-group">
+                {{ form.full_name.label }}
+                {{ form.full_name(class="form-control", autocomplete="name") }}
+            </div>
+            <div class="form-group">
+                {{ form.phone_number.label }}
+                {{ form.phone_number(class="form-control", autocomplete="tel") }}
+            </div>
+            <div class="form-group">
+                {{ form.address.label }}
+                {{ form.address(rows=4, class="form-control", autocomplete="street-address") }}
+            </div>
+            {{ form.submit(class="cta auth-button") }}
+        </form>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    document.getElementById('profile_image').addEventListener('change', function(event) {
+        const [file] = event.target.files;
+        if (file) {
+            document.getElementById('profile-preview').src = URL.createObjectURL(file);
+        }
+    });
+</script>
+{% endblock %}

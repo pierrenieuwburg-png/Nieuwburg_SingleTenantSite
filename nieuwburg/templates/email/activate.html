@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .btn { background-color: #0ea5e9; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; margin-top: 20px; }
+        .footer { margin-top: 30px; font-size: 0.8rem; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Welcome to Nieuwburg Blitz!</h2>
+        
+        <p>Hi {{ user.profile.full_name or 'there' }},</p>
+        
+        <p>Thanks for creating an account. To get started and book your first service, please verify your email address by clicking the button below:</p>
+        
+        <a href="{{ confirm_url }}" class="btn">Confirm Email & Log In</a>
+        
+        <p class="footer">If you did not request this email, please ignore it.</p>
+    </div>
+</body>
+</html>

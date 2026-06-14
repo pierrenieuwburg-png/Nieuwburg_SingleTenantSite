@@ -1,0 +1,124 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% if current_user.role == 'admin' and current_user.tenant.verification_status != 'verified' %}
+<div class="alert-banner warning" style="background: #fff3cd; color: #856404; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ffeeba; display: flex; align-items: center; justify-content: space-between;">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <i class="fas fa-exclamation-triangle" style="font-size: 1.5rem;"></i>
+        <div>
+            <strong>Your profile is hidden from the Marketplace.</strong>
+            <p style="margin: 0; font-size: 0.9rem;">
+                {% if current_user.tenant.verification_status == 'pending' %}
+                    We are reviewing your documents. This usually takes 24-48 hours.
+                {% else %}
+                    Upload your Trade Certificate or ID to unlock public leads and build trust.
+                {% endif %}
+            </p>
+        </div>
+    </div>
+    
+    {% if current_user.tenant.verification_status == 'unverified' %}
+        <a href="{{ url_for('admin.verification_upload') }}" class="cta cta-small" style="background: #856404; color: white; text-decoration: none; padding: 8px 15px; border-radius: 4px;">
+            Verify Now
+        </a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% block content %}
+<div class="admin-header">
+  <h1>Dashboard</h1>
+  <p>Welcome back, {{ current_user.profile.full_name or current_user.email }}!</p>
+</div>
+
+<div class="stats-grid">
+  <div class="stat-card">
+    <h2>New Quotes</h2>
+    <p class="stat-number">{{ new_quotes_count }}</p>
+  </div>
+  <div class="stat-card">
+    <h2>Upcoming Cleans</h2>
+    <p class="stat-number">{{ upcoming_cleans_count }}</p>
+  </div>
+  <div class="stat-card">
+    <h2>Active Clients</h2>
+    <p class="stat-number">{{ active_clients_count }}</p>
+  </div>
+  <div class="stat-card">
+    <h2>Staff Members</h2>
+    <p class="stat-number">{{ staff_members_count }}</p>
+  </div>
+</div>
+
+<div class="admin-section">
+  <h2>Recent Activity</h2>
+  <div id="recent-activity-feed">
+    <p>Loading recent activity...</p>
+  </div>
+</div>
+
+<style>
+.activity-item {
+  display: flex;
+  gap: 15px;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.activity-item:last-child {
+  border-bottom: none;
+}
+.activity-time {
+  flex-shrink: 0;
+  width: 100px;
+  color: #666;
+  font-size: 0.85rem;
+}
+.activity-desc {
+  flex-grow: 1;
+}
+.activity-user {
+  flex-shrink: 0;
+  width: 180px;
+  text-align: right;
+  color: #888;
+  font-size: 0.85rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const activityFeed = document.getElementById('recent-activity-feed');
+
+    async function fetchAndUpdateActivity() {
+        try {
+            const response = await fetch('/api/recent-activity');
+            if (!response.ok) {
+                throw new Error('Failed to fetch activity');
+            }
+            const logs = await response.json();
+
+            if (logs.length > 0) {
+                activityFeed.innerHTML = logs.map(log => `
+                    <div class="activity-item">
+                        <div class="activity-time">${log.timestamp}</div>
+                        <div class="activity-desc">${log.description}</div>
+                        <div class="activity-user">${log.user_email}</div>
+                    </div>
+                `).join('');
+            } else {
+                activityFeed.innerHTML = '<p>No recent activity found.</p>';
+            }
+        } catch (error) {
+            console.error('Error fetching activity:', error);
+            activityFeed.innerHTML = '<p style="color: red;">Could not load activity feed.</p>';
+        }
+    }
+
+    fetchAndUpdateActivity();
+    setInterval(fetchAndUpdateActivity, 30000); 
+});
+</script>
+{% endblock %}

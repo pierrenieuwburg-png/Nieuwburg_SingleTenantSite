@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: auto; padding: 20px;">
+
+    <div style="text-align: center; margin-bottom: 20px;">
+        <img src="{{ logo_url }}" alt="Nieuwburg Blitz Logo" style="max-width: 200px; height: auto;">
+    </div>
+
+    <h2 style="font-family: 'Oswald', sans-serif; color: #111;">Your Quote is Ready!</h2>
+    
+    <p>Hello {{ quote.guest_name or quote.user.profile.full_name }},</p>
+    
+    <p>Thank you for your interest in our services. Your specialized quote (<strong>{{ quote.quote_number }}</strong>) is now ready for you to view.</p>
+    
+    <p>Please click the button below to view your quote. If this is your first time receiving a quote from us, an account will be automatically created for you, giving you access to your new client dashboard.</p>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ acceptance_url }}" style="display: inline-block; padding: 12px 25px; background-color: #006ac6; color: #ffffff; text-decoration: none; border-radius: 5px; font-weight: bold;">View My Quote</a>
+    </div>
+    
+    <p>If you have any questions, please don't hesitate to contact us.</p>
+    
+    <p>Sincerely,<br>The Nieuwburg Blitz Team</p>
+
+</body>
+</html>

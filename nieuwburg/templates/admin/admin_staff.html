@@ -1,0 +1,102 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Staff{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+<h1>Staff Management</h1>
+<button type="button" class="cta" id="add-staff-button">Add New Staff</button>
+</div>
+
+<div id="staff-flash-messages" style="margin-bottom: 20px;">
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+    {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+{% endif %}
+{% endwith %}
+</div>
+
+<div class="admin-section">
+<div class="form-group" style="margin-bottom: 20px; max-width: 400px;">
+    <label for="staff-search" class="form-label">Search Staff</label>
+    <input type="text" id="staff-search" class="form-control" placeholder="Search by name or email...">
+</div>
+
+<table class="data-table">
+<thead>
+  <tr>
+    <th style="width: 60px;">&nbsp;</th>
+    <th>Name</th>
+    <th>Email</th>
+    <th>Phone</th>
+    <th>Age</th>
+    <th style="width: 120px;">Actions</th>
+  </tr>
+</thead>
+<tbody id="staff-table-body">
+<tr id="initial-loading-row"> {# Added ID #}
+    <td colspan="6" style="text-align: center; padding: 20px;">Loading staff members...</td>
+</tr>
+</tbody>
+</table>
+</div>
+
+{# --- Add Staff Modal --- #}
+<div id="add-staff-modal" class="modal-overlay simple-modal" style="display: none;">
+<div class="modal-content auth-modal-content" style="max-width: 500px;">
+    <button id="close-add-staff-modal" class="modal-close" aria-label="Close form">&times;</button>
+    <h2 class="auth-title">Add New Staff Member</h2>
+
+    <div id="add-staff-error-message" class="flash error" style="display: none; margin-top: 0;"></div>
+
+    <form id="add-staff-form" class="auth-form-modal active" style="padding-top: 15px;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+            <label for="add-staff-full_name">Full Name</label>
+            <input type="text" id="add-staff-full_name" name="full_name" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="add-staff-email">Email</label>
+            <input type="email" id="add-staff-email" name="email" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="add-staff-phone_number">Phone Number</label>
+            <input type="tel" id="add-staff-phone_number" name="phone_number" class="form-control">
+        </div>
+        <div class="form-group">
+            <label for="add-staff-address">Address</label>
+            <textarea id="add-staff-address" name="address" class="form-control" rows="3"></textarea>
+        </div>
+        <div class="form-group">
+            <label for="add-staff-id_number">South African ID Number</label>
+            <input type="text" id="add-staff-id_number" name="id_number" class="form-control" maxlength="13">
+        </div>
+
+        {# --- NEW CHECKBOX --- #}
+        <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; background-color: #f4f7fa; padding: 10px; border-radius: 8px;">
+            <input type="checkbox" id="send_activation_email" name="send_activation_email" value="true" checked style="width: 20px; height: 20px;">
+            <label for="send_activation_email" style="font-weight: bold; margin-bottom: 0;">Send activation email to staff member</label>
+        </div>
+        {# --- END NEW CHECKBOX --- #}
+
+        <button type="submit" class="cta">Save Staff Member</button>
+    </form>
+</div>
+</div>
+{# --- End Add Staff Modal --- #}
+
+{% endblock %} {# End block content #}
+
+{% block scripts %}
+{{ super() }}
+<script>
+    // Load the external initialization script
+    (function() {
+        const s = document.createElement('script');
+        s.src = "{{ url_for('static', filename='js/staff_init.js') }}";
+        s.async = false; 
+        document.body.appendChild(s);
+    })();
+</script>
+{% endblock %}

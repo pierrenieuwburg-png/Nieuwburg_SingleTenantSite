@@ -1,0 +1,66 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}View Quote Request #{{ quote.id }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Quote Request #{{ quote.id }}</h1>
+    <a href="{{ url_for('admin.admin_spa_shell', path='quotes') }}" class="cta-outline">Back to Quotes</a>
+</div>
+
+<div class="admin-section">
+    <div class="quote-details-grid">
+
+        <div class="detail-card">
+            <h3>Client & Contact</h3>
+            <p>
+                <strong>Name:</strong><br>
+                {{ quote.name | default('N/A') }}
+            </p>
+            <p>
+                <strong>Email:</strong><br>
+                {{ quote.email | default('N/A') }}
+            </p>
+            <p>
+                <strong>Phone:</strong><br>
+                {{ quote.phone | default('N/A') }}
+            </p>
+            <p>
+                <strong>Address:</strong><br>
+                {{ quote.address | default('Not provided') }}
+            </p>
+        </div>
+
+        <div class="detail-card">
+            <h3>Request Details</h3>
+            <p>
+                <strong>Submitted On (SAST):</strong><br>
+                {# Use the 'to_sast' filter registered in __init__.py #}
+                {{ quote.request_date | to_sast | strftime('%d %b %Y, %H:%M') if quote.request_date else 'N/A' }}
+            </p>
+            <p>
+                <strong>Status:</strong><br>
+                <span class="status-badge status-{{ quote.status | lower }}">{{ quote.status | default('Unknown') }}</span>
+            </p>
+            <p>
+                <strong>Subject:</strong><br>
+                {{ quote.subject | default('N/A') }}
+            </p>
+            <p>
+                <strong>Associated User:</strong><br>
+                {% if quote.user %}
+                    {{ quote.user.email }} (ID: {{ quote.user_id }})
+                {% else %}
+                    No associated user account.
+                {% endif %}
+            </p>
+        </div>
+
+        <div class="detail-card full-width">
+            <h3>Full Description</h3>
+            {# Use the 'nl2br' filter registered in __init__.py #}
+            <p class="quote-description">{{ quote.description | nl2br | default('No description provided.') }}</p>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

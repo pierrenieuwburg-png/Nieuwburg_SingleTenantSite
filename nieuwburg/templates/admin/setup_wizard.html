@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome - Nieuwburg Blitz Setup</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@700&display=swap" rel="stylesheet">
+    <style>
+        /* Basic styles from your project to ensure consistency */
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #f9fafb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .form-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 12px 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.2s ease-in-out;
+            background-color: #fff;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #006ac6;
+            box-shadow: 0 0 0 3px rgba(0, 106, 198, 0.2);
+        }
+        .form-label {
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+            display: block;
+            color: #1f2937;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .cta {
+            padding: 10px 22px;
+            border: 2px solid transparent;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            font-weight: 600;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            background: #006ac6;
+            color: #fff;
+            border-color: #006ac6;
+        }
+        .cta:hover {
+            background: #005099;
+            border-color: #005099;
+        }
+        .cta:disabled {
+            background: #a0aec0;
+            border-color: #a0aec0;
+            cursor: not-allowed;
+        }
+        .cta-outline {
+            background: transparent;
+            color: #006ac6;
+            border-color: #006ac6;
+        }
+        .cta-outline:hover {
+            background: #006ac6;
+            color: #fff;
+        }
+        .flash {
+            padding: 15px;
+            border-radius: 4px;
+            font-weight: 500;
+            margin-bottom: 20px;
+        }
+        .flash.error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        h1 {
+            font-family: 'Oswald', sans-serif;
+            color: #002244;
+            text-align: center;
+            margin-top: 0;
+            font-size: 2rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+
+    <div id="wizard-container" class="w-full max-w-2xl bg-white p-8 md:p-10 rounded-xl shadow-lg border-2 border-gray-200">
+        
+        <h1>Welcome to Nieuwburg Blitz!</h1>
+        <p class="text-center text-lg text-gray-600 -mt-2 mb-6">
+            Let's get your business set up in just a few steps.
+        </p>
+
+        <!-- Error message placeholder -->
+        <div id="error-message" class="flash error" style="display: none;"></div>
+
+        <form id="setup-form">
+            <!-- Step 1: Business Details -->
+            <div id="step-1" class="wizard-step">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Step 1: Your Business Details</h2>
+                <div class="form-group">
+                    <label for="business_name" class="form-label">Business Name</label>
+                    <input type="text" id="business_name" name="business_name" class="form-input" value="{{ business_name or '' }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="business_address" class="form-label">Business Address (Optional)</label>
+                    <input type="text" id="business_address" name="business_address" class="form-input" placeholder="e.g. 123 Main St, Cape Town, 8001">
+                </div>
+                <div class="form-group">
+                    <label for="registration_number" class="form-label">Registration Number (Optional)</label>
+                    <input type="text" id="registration_number" name="registration_number" class="form-input">
+                </div>
+                <div class="text-right mt-8">
+                    <button type="button" id="next-btn" class="cta">Next: Quoting Terms &rarr;</button>
+                </div>
+            </div>
+
+            <!-- Step 2: Quoting Terms -->
+            <div id="step-2" class="wizard-step" style="display: none;">
+                <h2 class="text-xl font-bold text-gray-800 border-b pb-2 mb-4">Step 2: Default Quoting Terms</h2>
+                <p class="text-sm text-gray-600 -mt-2 mb-4">
+                    This is your default terms and conditions text for new quotes. You can edit this later in settings.
+                </p>
+                <div class="form-group">
+                    <label for="default_terms" class="form-label">Terms & Conditions</label>
+                    <textarea id="default_terms" name="default_terms" class="form-input" rows="12">1. All payments are due within 30 days.
+2. A 10% late fee will be applied to all overdue accounts.
+3. Cancellations must be made at least 48 hours prior to the scheduled service.
+4. Nieuwburg Blitz is not responsible for pre-existing damage.</textarea>
+                </div>
+                <div class="flex justify-between mt-8">
+                    <button type="button" id="back-btn" class="cta-outline">&larr; Back</button>
+                    <button type="submit" id="submit-btn" class="cta">Finish Setup</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const step1 = document.getElementById('step-1');
+            const step2 = document.getElementById('step-2');
+            const nextBtn = document.getElementById('next-btn');
+            const backBtn = document.getElementById('back-btn');
+            const form = document.getElementById('setup-form');
+            const submitBtn = document.getElementById('submit-btn');
+            const errorDiv = document.getElementById('error-message');
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            function showError(message) {
+                if (message) {
+                    errorDiv.textContent = message;
+                    errorDiv.style.display = 'block';
+                } else {
+                    errorDiv.style.display = 'none';
+                }
+            }
+
+            nextBtn.addEventListener('click', () => {
+                // Simple validation
+                if (document.getElementById('business_name').value.trim() === '') {
+                    showError('Please enter your business name.');
+                    return;
+                }
+                showError(null);
+                step1.style.display = 'none';
+                step2.style.display = 'block';
+            });
+
+            backBtn.addEventListener('click', () => {
+                step2.style.display = 'none';
+                step1.style.display = 'block';
+            });
+
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                showError(null);
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+
+                const formData = new FormData(form);
+                const data = Object.fromEntries(formData.entries());
+
+                try {
+                    // This is the new API endpoint we'll create in Part 3
+                    const response = await fetch('/api/admin/setup-wizard/save', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok) {
+                        throw new Error(result.message || 'Failed to save settings.');
+                    }
+
+                    // Success! Redirect to the main admin dashboard.
+                    window.location.href = result.redirect_url || '/admin/dashboard'; // 'admin_spa_shell'
+
+                } catch (err) {
+                    showError(err.message);
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Finish Setup';
+                }
+            });
+        });
+    </script>
+</body>
+</html>

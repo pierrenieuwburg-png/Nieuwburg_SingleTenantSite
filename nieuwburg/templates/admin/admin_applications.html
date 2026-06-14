@@ -1,0 +1,48 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Blitz Applications{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Blitz Applications</h1>
+    <p>A list of submitted applications from potential staff.</p>
+</div>
+
+<div class="admin-section">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Received</th>
+                <th>Name</th>
+                <th>ID Number</th>
+                <th>Contact</th>
+                <th>Documents</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for app in applications %}
+            <tr>
+                <td>{{ app.submission_date.strftime('%d %b %Y, %H:%M') }}</td>
+                <td>{{ app.full_name }}</td>
+                <td>{{ app.id_number }}</td>
+                <td>{{ app.email }}<br>{{ app.phone_number }}</td>
+                <td>
+                    {% if app.document_filenames %}
+                        {% for doc_filename in app.document_filenames %}
+                            <a href="{{ url_for('static', filename='uploads/' + doc_filename) }}" target="_blank" class="cta-outline-small" style="margin-bottom: 5px; display: inline-block;">
+                                View Doc {{ loop.index }}
+                            </a><br>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color: #999;">N/A</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% else %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">No applications have been submitted yet.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

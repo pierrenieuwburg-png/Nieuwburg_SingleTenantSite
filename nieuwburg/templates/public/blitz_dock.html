@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}The Blitz Dock - Your Client Dashboard{% endblock %}
+
+{% block content %}
+<section class="container" style="padding-top: 60px; padding-bottom: 80px; max-width: 900px;">
+    <div style="margin-bottom: 30px;">
+        <a href="{{ url_for('main.index') }}" style="color: var(--text-light); text-decoration: none; font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 15px;">‹ Back to Home</a>
+        <h1 class="section-title" style="text-align: left; margin-bottom: 10px;">Welcome to the Blitz Dock</h1>
+        <p class="section-subtitle" style="text-align: left; margin: 0; max-width: 100%;">Your personal command center for managing all your Nieuwburg services. The help you need, without the hassle, is now even easier to manage.</p>
+    </div>
+
+    <div class="collage-grid">
+        <div class="collage-image">
+            <img src="https://placehold.co/600x400/e5e7eb/333333?text=Dashboard+View" alt="Client dashboard overview">
+        </div>
+        <div class="collage-image">
+            <img src="https://placehold.co/600x400/002244/FFFFFF?text=Booking+History" alt="Booking history page">
+        </div>
+        <div class="collage-image">
+            <img src="https://placehold.co/600x400/e5e7eb/333333?text=Manage+Payments" alt="Payment management page">
+        </div>
+        <div class="collage-image">
+            <img src="https://placehold.co/600x400/002244/FFFFFF?text=Profile+Settings" alt="User profile settings">
+        </div>
+    </div>
+
+    <div style="margin-top: 40px; line-height: 1.8;">
+        <h3>Complete Control at Your Fingertips</h3>
+        <p>The Blitz Dock is designed to give you a seamless overview of your services. Once you're logged in, you'll be able to:</p>
+        <ul>
+            <li><strong>View Your Schedule:</strong> See all upcoming and past cleaning appointments in a simple, clear format.</li>
+            <li><strong>Manage Bookings:</strong> Need to reschedule a service? You can request changes directly from your dashboard.</li>
+            <li><strong>Access Invoices & Quotes:</strong> Download PDFs of all your quotes and invoices for your records, anytime.</li>
+            <li><strong>Update Your Details:</strong> Easily update your contact information and service address.</li>
+        </ul>
+        <p>Our goal is to provide a fully transparent and easy-to-use platform that saves you time and keeps you informed.</p>
+        <div style="text-align: center; margin-top: 50px;">
+            <button id="login-nav-btn-2" class="cta cta-large">Log In or Sign Up</button>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>
+        // Simple script to make the new login button work
+        document.getElementById('login-nav-btn-2').addEventListener('click', function() {
+            document.getElementById('login-nav-btn').click();
+        });
+    </script>
+{% endblock %}

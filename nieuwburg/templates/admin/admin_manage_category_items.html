@@ -1,0 +1,72 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Manage Items for {{ category.name }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Manage Items & Pricing: {{ category.name }}</h1>
+    <a href="{{ url_for('admin_service_categories') }}" class="cta-outline">Back to Categories</a>
+</div>
+
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 30px;">
+    <div class="admin-section">
+        <h2>Service Items in this Category</h2>
+        {% if category.items %}
+            {% for item in category.items %}
+            <div class="service-item-pricing-block">
+                <div class="service-item-header">
+                    <strong>{{ item.name }}</strong> ({{ item.estimated_time_mins }} mins)
+                    <div class="action-buttons">
+                        <a href="{{ url_for('admin_edit_service_item', item_id=item.id) }}" class="cta-outline-small">Edit Item</a>
+                        <form action="{{ url_for('admin_delete_service_item', item_id=item.id) }}" method="POST" onsubmit="return confirm('Delete this item and all its prices?');">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="cta-danger-small">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                <table class="data-table" style="margin-top: 10px;">
+                    <thead><tr><th>Frequency</th><th>Price</th><th>Action</th></tr></thead>
+                    <tbody>
+                        {% for price in item.prices %}
+                        <tr>
+                            <td>{{ price.frequency }}</td>
+                            <td>R{{ "%.2f"|format(price.price) }}</td>
+                            <td>
+                                <form action="{{ url_for('admin_delete_service_price', price_id=price.id) }}" method="POST" onsubmit="return confirm('Delete this price point?');">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="cta-danger-small">Delete</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+                <form action="{{ url_for('admin_add_service_price', item_id=item.id) }}" method="POST" class="add-price-form">
+                    {{ price_form.hidden_tag() }}
+                    {{ price_form.frequency() }}
+                    {{ price_form.price(placeholder="Price (R)") }}
+                    {{ price_form.submit() }}
+                </form>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p style="text-align:center; padding: 20px;">No items in this category yet. Add one to get started.</p>
+        {% endif %}
+    </div>
+    <div class="admin-section">
+        <h2>Add New Item</h2>
+        <form method="POST" class="profile-form">
+            {{ item_form.hidden_tag() }}
+            <div class="form-group">{{ item_form.name.label }}{{ item_form.name(class="form-control") }}</div>
+            <div class="form-group">{{ item_form.estimated_time_mins.label }}{{ item_form.estimated_time_mins(class="form-control") }}</div>
+            <input type="submit" name="submit_item" value="Add Item" class="cta">
+        </form>
+    </div>
+</div>
+<style>
+  .service-item-pricing-block { border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; margin-bottom: 20px; }
+  .service-item-header { display: flex; justify-content: space-between; align-items: center; }
+  .add-price-form { display: flex; gap: 10px; margin-top: 15px; }
+  .add-price-form select, .add-price-form input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+  .add-price-form button { padding: 8px 12px; }
+</style>
+{% endblock %}

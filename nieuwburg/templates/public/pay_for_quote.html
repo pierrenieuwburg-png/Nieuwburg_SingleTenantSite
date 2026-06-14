@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Pay Deposit for Quote {{ quote.quote_number }}{% endblock %}
+
+{% block content %}
+<section class="container auth-page" style="padding-top: 60px; padding-bottom: 60px;">
+    <div class="auth-container" style="max-width: 550px;">
+        <h1 class="section-title">Deposit Payment</h1>
+        <p class="section-subtitle">A 50% deposit is required to confirm the booking for Quote #{{ quote.quote_number }}.</p>
+
+        <div class="booking-summary" style="margin: 20px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee;">
+            <div class="summary-item">
+                <span>Quote Total:</span>
+                <strong>R{{ "%.2f"|format(quote.total) }}</strong>
+            </div>
+            <div class="summary-item total" style="background-color: #f0f5fa;">
+                <span>50% Deposit Due:</span>
+                <strong>R{{ "%.2f"|format(deposit_amount) }}</strong>
+            </div>
+        </div>
+        
+        <form id="payment-form" 
+              class="auth-form"
+              data-key="{{ paystack_public_key }}"
+              data-quote-id="{{ quote.id }}"
+              data-amount="{{ (deposit_amount * 100)|int }}">
+
+            <p>Please enter the payer's details below for the receipt.</p>
+            <div class="form-group">
+                <label for="payer-name">Full Name</label>
+                <input type="text" id="payer-name" class="form-control" required value="{{ quote.user.profile.full_name or quote.guest_name or '' }}">
+            </div>
+            <div class="form-group">
+                <label for="payer-email">Email Address</label>
+                <input type="email" id="payer-email" class="form-control" required value="{{ quote.user.email or quote.guest_email or '' }}">
+            </div>
+            <button type="submit" class="cta" style="width: 100%;">Pay R{{ "%.2f"|format(deposit_amount) }} Now</button>
+        </form>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="{{ url_for('static', filename='js/payment.js') }}"></script>
+{% endblock %}

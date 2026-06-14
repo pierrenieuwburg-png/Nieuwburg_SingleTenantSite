@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Nieuwburg Blitz Services - The Help You Need, Without The Hassle.{% endblock %}</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Oswald:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css', v='1.1') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body>
+
+    <header class="site-header">
+        <div class="nav-container">
+            <a href="{{ url_for('main.index') }}" class="nav-logo">
+                <img src="{{ url_for('static', filename='img/LogoBlackWithTitle.png') }}" alt="Nieuwburg Blitz Logo">
+            </a>
+            <div class="nav-actions">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('main.client_dashboard') }}" class="cta-outline">Dashboard</a>
+                    <a href="{{ url_for('auth.logout') }}" class="cta">Log Out</a>
+                {% else %}
+                    <button class="cta-outline" id="login-nav-btn">Log In</button>
+                    <button class="cta" id="quote-button">Book Now</button> {# Changed from Sign Up for clarity #}
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="site-footer">
+        <div class="container footer-container">
+            <div class="footer-column about">
+                <img src="{{ url_for('static', filename='img/LogoBlackWithTitle.png') }}" alt="Nieuwburg Blitz Logo" class="footer-logo">
+                <p class="copyright">&copy; {{ now.year }} Nieuwburg Blitz. <br>All rights reserved.</p>
+            </div>
+            <div class="footer-column">
+            <h4>Company</h4>
+                <a href="{{ url_for('main.about_us') }}">About Us</a>
+                <a href="{{ url_for('main.blog') }}">Blog</a>
+                <a href="{{ url_for('main.pricing') }}">Pricing</a>
+                <a href="#" id="join-team-footer-btn">Join Our Team</a>
+            </div>
+            <div class="footer-column">
+                <h4>Services</h4>
+                <a href="{{ url_for('main.housekeeper_placement') }}">Residential</a>
+                <a href="#">Commercial</a> {# Placeholder for now #}
+                <a href="{{ url_for('main.housekeeper_placement') }}">Full-Time Placements</a>
+            </div>
+            <div class="footer-column">
+                <h4>Support</h4>
+                <a href="{{ url_for('main.faq') }}">FAQ</a>
+                <div class="social-links">
+                    <a href="#" aria-label="Facebook"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg></a>
+                    <a href="#" aria-label="Instagram"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" x2="17.51" y1="6.5" y2="6.5"/></svg></a>
+                </div>
+            </div>
+        </div>
+        <div class="container footer-legal">
+            <a href="#">Terms & Conditions</a>
+            <span>•</span>
+            <a href="#">Privacy Policy</a>
+        </div>
+    </footer>
+
+    {% include 'shared/_auth_modal.html' %}
+    {% include 'shared/_booking_modal.html' %} {# Make sure booking modal is included #}
+    {% include 'shared/_join_team_modal.html' %}
+    {% include 'shared/_quote_modal.html' %}
+    
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollToPlugin.min.js"></script>
+    <script src="https://unpkg.com/typed.js@2.1.0/dist/typed.umd.js"></script>
+    
+    <script src="{{ url_for('static', filename='js/site.js') }}"></script>
+
+    <script src="https://js.paystack.co/v1/inline.js"></script>
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key={{ google_maps_api_key }}&libraries=places&callback=initMap"></script>
+    
+    {% block scripts %}{% endblock %}
+
+</body>
+</html>

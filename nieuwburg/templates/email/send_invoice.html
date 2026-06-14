@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: Arial, sans-serif; color: #333; line-height: 1.6; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #eee; border-radius: 5px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .btn { display: inline-block; background-color: #002244; color: #ffffff; padding: 12px 25px; text-decoration: none; border-radius: 4px; font-weight: bold; margin-top: 20px; }
+        .footer { margin-top: 30px; font-size: 12px; color: #888; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            {% if logo_url %}
+                <img src="{{ logo_url }}" alt="Logo" style="max-height: 80px;">
+            {% else %}
+                <h2>{{ business_name }}</h2>
+            {% endif %}
+        </div>
+
+        <p>Dear {{ invoice.user.profile.full_name if invoice.user.profile else 'Client' }},</p>
+
+        <p>Please find attached the invoice <strong>{{ invoice.invoice_number }}</strong> for <strong>R {{ "%.2f"|format(invoice.total) }}</strong>.</p>
+
+        <p><strong>Due Date:</strong> {{ invoice.due_date.strftime('%d %b %Y') }}</p>
+
+        <p>You can make a secure online payment instantly by clicking the button below:</p>
+
+        <div style="text-align: center;">
+            <a href="{{ payment_url }}" class="btn">Pay Invoice Now</a>
+        </div>
+
+        <p>Alternatively, copy and paste this link into your browser:</p>
+        <p><small>{{ payment_url }}</small></p>
+
+        <p>Thank you for your business.</p>
+
+        <div class="footer">
+            <p>Sent by {{ business_name }} via Nieuwburg Blitz</p>
+        </div>
+    </div>
+</body>
+</html>

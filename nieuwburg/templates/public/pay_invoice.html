@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 800px; margin: 50px auto; background: white; padding: 40px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #e5e7eb;">
+    
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h1 style="margin-bottom: 5px; color: #002244;">INVOICE</h1>
+        <p style="color: #6b7280;">{{ invoice.invoice_number }}</p>
+        
+        {% if invoice.status == 'Paid' %}
+            <div style="display: inline-block; background: #10b981; color: white; padding: 8px 20px; border-radius: 20px; font-weight: bold; margin-top: 10px;">
+                PAID
+            </div>
+        {% else %}
+             <div style="display: inline-block; background: #f59e0b; color: white; padding: 8px 20px; border-radius: 20px; font-weight: bold; margin-top: 10px;">
+                DUE: R {{ "%.2f"|format(invoice.total) }}
+            </div>
+        {% endif %}
+    </div>
+
+    <div style="display: flex; justify-content: space-between; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 20px 0; margin-bottom: 30px;">
+        <div>
+            <strong>From:</strong><br>
+            {{ business_name }}
+        </div>
+        <div style="text-align: right;">
+            <strong>Date:</strong> {{ invoice.invoice_date.strftime('%d %b %Y') }}<br>
+            <strong>Due:</strong> {{ invoice.due_date.strftime('%d %b %Y') }}
+        </div>
+    </div>
+
+    <table style="width: 100%; border-collapse: collapse; margin-bottom: 30px;">
+        <thead>
+            <tr style="border-bottom: 2px solid #eee;">
+                <th style="text-align: left; padding: 10px 0;">Description</th>
+                <th style="text-align: center; padding: 10px 0;">Qty</th>
+                <th style="text-align: right; padding: 10px 0;">Price</th>
+                <th style="text-align: right; padding: 10px 0;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in invoice.line_items %}
+            <tr style="border-bottom: 1px solid #eee;">
+                <td style="padding: 15px 0;">{{ item.description }}</td>
+                <td style="text-align: center; padding: 15px 0;">{{ item.quantity }}</td>
+                <td style="text-align: right; padding: 15px 0;">R {{ "%.2f"|format(item.unit_price) }}</td>
+                <td style="text-align: right; padding: 15px 0;">R {{ "%.2f"|format(item.amount) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div style="text-align: right; margin-bottom: 40px;">
+        <h2 style="color: #002244;">Total: R {{ "%.2f"|format(invoice.total) }}</h2>
+    </div>
+
+    {% if invoice.status != 'Paid' %}
+    <div style="text-align: center;">
+        <p style="margin-bottom: 15px; color: #666;">Enter your email to receive a receipt:</p>
+        <input type="email" id="payer-email" placeholder="client@example.com" style="padding: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 15px;">
+        <br>
+        <button id="pay-btn" class="cta cta-large" style="width: 300px;">
+            Pay Now Securely
+        </button>
+        <p id="pay-msg" style="margin-top: 10px; font-size: 0.9rem;"></p>
+    </div>
+    {% endif %}
+
+</div>
+
+<script>
+    document.getElementById('pay-btn')?.addEventListener('click', async function() {
+        const email = document.getElementById('payer-email').value;
+        const btn = this;
+        const msg = document.getElementById('pay-msg');
+        
+        // --- 1. GET THE CSRF TOKEN FROM THE PAGE ---
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        if (!email || !email.includes('@')) {
+            alert("Please enter a valid email address.");
+            return;
+        }
+
+        btn.disabled = true;
+        btn.innerText = "Processing...";
+        msg.innerText = "Initiating payment...";
+
+        try {
+            const response = await fetch('/api/invoice/initiate-payment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken // --- 2. SEND IT IN THE HEADER ---
+                },
+                body: JSON.stringify({
+                    token: "{{ invoice.payment_token }}",
+                    email: email
+                })
+            });
+
+            const data = await response.json();
+
+            if (data.authorization_url) {
+                window.location.href = data.authorization_url;
+            } else {
+                // Handle CSRF error specifically if it happens again
+                if (response.status === 400 && data.message?.includes("CSRF")) {
+                    alert("Security token expired. Please refresh the page and try again.");
+                } else {
+                    alert(data.message || "Payment initialization failed.");
+                }
+                btn.disabled = false;
+                btn.innerText = "Pay Now Securely";
+            }
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred. Please try again.");
+            btn.disabled = false;
+        }
+    });
+</script>
+{% endblock %}

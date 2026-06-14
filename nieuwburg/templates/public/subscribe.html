@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Subscribe to {{ plan_type|title }} - Nieuwburg Blitz{% endblock %}
+
+{% block content %}
+<section class="container" style="padding-top: 60px; padding-bottom: 80px; max-width: 500px;">
+    
+    <div style="text-align: center; margin-bottom: 30px;">
+        <a href="{{ url_for('main.pricing') }}" style="color: var(--text-light); text-decoration: none; font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 15px;">‹ Back to Plans</a>
+        <h1 class="section-title" style="margin-bottom: 10px;">Create Your Account</h1>
+        <p class="section-subtitle" style="margin: 0; max-width: 100%;">You're subscribing to the <strong style="color: var(--accent);">{{ plan_type|title }} Plan</strong>.</p>
+    </div>
+
+    <form id="subscribe-form" class="auth-form-modal active" style="gap: 20px; padding: 30px; border: 1px solid #e5e7eb; border-radius: 12px; background: white; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);">
+        
+        <input type="hidden" name="plan_type" value="{{ plan_type }}">
+
+        <h4 style="margin: 0 0 15px 0; color: #002244; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">Business Details</h4>
+        
+        <div class="form-group">
+            <label for="business_name" class="form-label">Business Name</label>
+            <input type="text" id="business_name" name="business_name" class="form-control" placeholder="e.g. ACME Services" required>
+        </div>
+
+        <div class="form-group">
+            <label for="industry" class="form-label">Primary Trade / Industry</label>
+            <select id="industry" name="industry" class="form-control" required>
+                <option value="" disabled selected>Select your main trade...</option>
+                <option value="Plumbing">Plumbing</option>
+                <option value="Electrical">Electrical</option>
+                <option value="Cleaning">Cleaning (Residential/Commercial)</option>
+                <option value="Handyman">Handyman</option>
+                <option value="Construction">Building & Construction</option>
+                <option value="Landscaping">Landscaping</option>
+                <option value="HVAC">Air Conditioning (HVAC)</option>
+                <option value="Security">Security Systems</option>
+                <option value="Other">Other</option>
+            </select>
+        </div>
+
+        <h4 style="margin: 20px 0 15px 0; color: #002244; border-bottom: 1px solid #f3f4f6; padding-bottom: 10px;">Account Login</h4>
+
+        <div class="form-group">
+            <label for="full_name" class="form-label">Full Name</label>
+            <input type="text" id="full_name" name="full_name" class="form-control" placeholder="e.g. Jane Doe" required>
+        </div>
+
+        <div class="form-group">
+            <label for="email" class="form-label">Email Address</label>
+            <input type="email" id="email" name="email" class="form-control" placeholder="you@company.com" required>
+        </div>
+
+        <div class="form-group">
+            <label for="password" class="form-label">Create Password</label>
+            <div class="password-wrapper" style="position: relative;">
+                <input type="password" id="password" name="password" class="form-control" required placeholder="8+ characters" style="padding-right: 40px; position: relative; z-index: 1; background: transparent;">
+                <i class="fa-regular fa-eye password-toggle-icon" data-target="password" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 10; cursor: pointer; color: #6b7280;"></i>
+            </div>
+        
+            <ul class="password-requirements">
+                <li id="sub-req-length" class="invalid"><i class="fa-solid fa-circle-check"></i> 8+ Characters</li>
+                <li id="sub-req-upper" class="invalid"><i class="fa-solid fa-circle-check"></i> Uppercase</li>
+                <li id="sub-req-lower" class="invalid"><i class="fa-solid fa-circle-check"></i> Lowercase</li>
+                <li id="sub-req-number" class="invalid"><i class="fa-solid fa-circle-check"></i> Number</li>
+                <li id="sub-req-special" class="invalid"><i class="fa-solid fa-circle-check"></i> Special Char (!@#$%)</li>
+            </ul>
+        </div>
+
+        <div class="form-group">
+            <label for="confirm_password" class="form-label">Confirm Password</label>
+            <div class="password-wrapper" style="position: relative;">
+                <input type="password" id="confirm_password" name="confirm_password" class="form-control" required placeholder="Repeat password" style="padding-right: 40px; position: relative; z-index: 1; background: transparent;">
+                <i class="fa-regular fa-eye password-toggle-icon" data-target="confirm_password" style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 10; cursor: pointer; color: #6b7280;"></i>
+            </div>
+            <small id="sub-match-text" style="display:none; color: #dc3545; font-size: 0.8rem; margin-top: 5px;">Passwords do not match</small>
+        </div>
+        <div id="subscription-error-message" class="flash error" style="display: none; margin-top: 15px; margin-bottom: 15px; text-align: center; font-size: 0.9rem;"></div>
+        <button type="submit" id="submit-btn" class="cta" style="width: 100%; margin-top: 20px;" disabled>
+            Proceed to Payment
+        </button>
+
+        <p style="text-align: center; font-size: 0.85rem; color: #9ca3af; margin-top: 15px;">
+            By continuing, you agree to our <a href="#" style="color: #006ac6;">Terms of Service</a>.
+        </p>
+
+    </form>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const subscribeForm = document.getElementById('subscribe-form');
+    // Use optional chaining for safety
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    const passwordInput = document.getElementById('password');
+    const confirmInput = document.getElementById('confirm_password');
+    const matchMessage = document.getElementById('sub-match-text');
+
+    // 1. Validation Logic
+    function validateForm() {
+        const val = passwordInput.value;
+        const confirmVal = confirmInput.value;
+
+        const reqs = {
+            length: val.length >= 8,
+            upper: /[A-Z]/.test(val),
+            lower: /[a-z]/.test(val),
+            number: /[0-9]/.test(val),
+            special: /[^a-zA-Z0-9]/.test(val)
+        };
+
+        let allReqsMet = true;
+        for (const [key, isValid] of Object.entries(reqs)) {
+            const el = document.getElementById(`sub-req-${key}`);
+            if (el) {
+                if (isValid) {
+                    el.classList.add('valid');
+                    el.classList.remove('invalid');
+                } else {
+                    el.classList.remove('valid');
+                    el.classList.add('invalid');
+                    allReqsMet = false;
+                }
+            }
+        }
+
+        if (allReqsMet) passwordInput.classList.add('valid-input');
+        else passwordInput.classList.remove('valid-input');
+
+        const isMatch = val === confirmVal && val !== "";
+        if (confirmVal.length > 0) {
+            if (isMatch) {
+                matchMessage.style.display = 'none';
+                confirmInput.classList.add('valid-input');
+                confirmInput.classList.remove('invalid-input');
+            } else {
+                matchMessage.style.display = 'block';
+                confirmInput.classList.remove('valid-input');
+                confirmInput.classList.add('invalid-input');
+            }
+        } else {
+            matchMessage.style.display = 'none';
+            confirmInput.classList.remove('valid-input');
+            confirmInput.classList.remove('invalid-input');
+        }
+
+        if (allReqsMet && isMatch) {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = "1";
+            submitBtn.style.cursor = "pointer";
+        } else {
+            submitBtn.disabled = true;
+            submitBtn.style.opacity = "0.6";
+            submitBtn.style.cursor = "not-allowed";
+        }
+    }
+
+    if (passwordInput) passwordInput.addEventListener('input', validateForm);
+    if (confirmInput) confirmInput.addEventListener('input', validateForm);
+
+    // 2. Form Submission
+    if (subscribeForm) {
+        subscribeForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const errDiv = document.getElementById('subscription-error-message');
+            
+            // Reset UI
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            if (errDiv) errDiv.style.display = 'none';
+
+            const formData = new FormData(subscribeForm);
+            const data = Object.fromEntries(formData.entries());
+            delete data.confirm_password;
+
+            fetch('/api/subscription/initiate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(result => {
+                if (result.authorization_url) {
+                    window.location.href = result.authorization_url;
+                } else {
+                    // SHOW ERROR IN FORM instead of alert
+                    if (errDiv) {
+                        errDiv.textContent = result.message || 'An error occurred. Please try again.';
+                        errDiv.style.display = 'block';
+                        // Optional: Scroll to make sure user sees it if form is long
+                        errDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } else {
+                        alert(result.message || 'An error occurred.');
+                    }
+                    
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Proceed to Payment';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                if (errDiv) {
+                    errDiv.textContent = 'A network error occurred. Please check your connection.';
+                    errDiv.style.display = 'block';
+                }
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Proceed to Payment';
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

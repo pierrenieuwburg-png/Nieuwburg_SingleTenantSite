@@ -1,0 +1,29 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+  <h1>{{ title }}</h1>
+  <a href="{{ url_for('admin_service_categories') }}" class="cta-outline">Back to Categories</a>
+</div>
+
+<div class="admin-section">
+  <form method="POST" class="profile-form" style="max-width: 600px; margin: 0;">
+      {{ form.hidden_tag() }}
+      <div class="form-group">
+          {{ form.name.label }}
+          {{ form.name(class="form-control") }}
+      </div>
+      <div class="form-group">
+          {{ form.description.label }}
+          {{ form.description(rows=3, class="form-control") }}
+      </div>
+      <div class="form-group">
+          {{ form.calculation_method.label }}
+          {{ form.calculation_method(class="form-control") }}
+          <p style="font-size: 0.8rem; color: #666; margin: 5px 0 0;">This determines how the customer interacts with this service in the booking form.</p>
+      </div>
+      {{ form.submit(class="cta") }}
+  </form>
+</div>
+{% endblock %}

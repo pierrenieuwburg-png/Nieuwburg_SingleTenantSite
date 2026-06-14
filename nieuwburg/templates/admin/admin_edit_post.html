@@ -1,0 +1,54 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+  <h1>{{ title }}</h1>
+  <a href="{{ url_for('admin_blog') }}" class="cta-outline">Back to Blog List</a>
+</div>
+
+<div class="admin-section">
+  <form method="POST" class="profile-form" style="max-width: 800px; margin: 0;" id="blog-post-form">
+      {{ form.hidden_tag() }}
+      <div class="form-group">
+          {{ form.title.label }}
+          {{ form.title(class="form-control") }}
+      </div>
+      <div class="form-group">
+          {{ form.excerpt.label }}
+          {{ form.excerpt(rows=3, class="form-control") }}
+      </div>
+      <div class="form-group">
+          {{ form.content.label }}
+          {{ form.content(rows=15, class="form-control", id="content") }}
+      </div>
+      <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px; background-color: #f4f7fa; padding: 15px; border-radius: 8px;">
+          {{ form.is_published(style="width: 20px; height: 20px;") }}
+          {{ form.is_published.label(style="font-weight: bold;") }}
+      </div>
+      
+      <button type="button" id="save-post-button" class="cta">Save Post</button>
+
+  </form>
+</div>
+
+<script>
+  tinymce.init({
+    selector: '#content',
+    plugins: 'lists link image emoticons',
+    toolbar: 'undo redo | blocks | bold italic | alignleft aligncenter alignright | bullist numlist outdent indent | link image | emoticons',
+    menubar: false,
+    height: 400
+  });
+
+  // ** CHANGE 2: Add a dedicated click listener for our new button **
+  document.getElementById('save-post-button').addEventListener('click', function() {
+    // First, trigger TinyMCE to save its content to the hidden textarea
+    tinymce.get('content').save();
+
+    // Then, find the form and programmatically submit it
+    document.getElementById('blog-post-form').submit();
+  });
+</script>
+
+{% endblock %}

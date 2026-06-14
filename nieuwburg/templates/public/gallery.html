@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Gallery - Nieuwburg Blitz{% endblock %}
+
+{% block content %}
+<section id="full-gallery" class="container">
+
+  <div style="text-align: center; margin-bottom: 50px;">
+    <h1 class="section-title">Our Work</h1>
+    <p class="section-subtitle">A collection of our completed projects.</p>
+  </div>
+
+  <div class="full-gallery-grid">
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/cleanhome_banner.jpg') }}" alt="Clean kitchen">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/BannerKitchenImage.png') }}" alt="Messy kitchen">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/cleanhome_banner.jpg') }}" alt="Clean bathroom">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/BannerKitchenImage.png') }}" alt="Messy bathroom">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/cleanhome_banner.jpg') }}" alt="Clean living room">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/BannerKitchenImage.png') }}" alt="Messy living room">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/cleanhome_banner.jpg') }}" alt="Clean office space">
+    </div>
+    <div class="gallery-photo">
+      <img src="{{ url_for('static', filename='img/BannerKitchenImage.png') }}" alt="Messy office space">
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "dashboard_base.html" %}
+{% block title %}My Jobs{% endblock %}
+
+{% block dashboard_content %}
+<div class="dashboard-header">
+    <h1>My Jobs</h1>
+    <p>Here are your upcoming and past job assignments.</p>
+</div>
+
+<div class="admin-section">
+    <h2>Upcoming Jobs</h2>
+    {% if upcoming_jobs %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Service</th>
+                <th>Assigned Staff</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in upcoming_jobs %}
+            <tr>
+                <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
+                <td>{{ job.quote_request.user.profile.full_name if job.quote_request and job.quote_request.user else 'N/A' }}</td>
+                <td>{{ job.quote_request.primary_service if job.quote_request else 'N/A' }}</td>
+                <td>{{ job.assigned_staff|map(attribute='profile.full_name')|join(', ') }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No upcoming jobs assigned.</p>
+    {% endif %}
+</div>
+
+<div class="admin-section">
+    <h2>Past Jobs</h2>
+    {% if past_jobs %}
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Client</th>
+                <th>Service</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for job in past_jobs %}
+            <tr>
+                <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
+                <td>{{ job.quote_request.user.profile.full_name if job.quote_request and job.quote_request.user else 'N/A' }}</td>
+                <td>{{ job.quote_request.primary_service if job.quote_request else 'N/A' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No past jobs.</p>
+    {% endif %}
+</div>
+{% endblock %}

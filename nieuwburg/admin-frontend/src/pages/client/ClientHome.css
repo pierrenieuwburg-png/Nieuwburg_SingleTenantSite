@@ -1,0 +1,332 @@
+.client-home-container {
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.section-heading {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 1rem;
+}
+
+/* --- SERVICE DOCK --- */
+.service-dock-section {
+  margin-bottom: 2.5rem;
+}
+
+.service-dock {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  gap: 1rem;
+}
+
+.service-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.service-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+  border-color: #d1d5db;
+}
+
+.icon-box {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.icon-box.clean { background: #eff6ff; color: #3b82f6; }
+.icon-box.garden { background: #f0fdf4; color: #22c55e; }
+.icon-box.fix { background: #fff7ed; color: #f97316; }
+.icon-box.add { background: #f3f4f6; color: #6b7280; }
+
+.service-card span {
+  font-weight: 500;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+/* --- SPLIT LAYOUT --- */
+.dashboard-split-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+
+@media (max-width: 900px) {
+  .dashboard-split-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --- STATUS CARD --- */
+.status-card {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.card-header h3 { margin: 0; font-size: 1rem; }
+
+.btn-text {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 500;
+}
+
+.job-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: #f9fafb;
+  border-radius: 12px;
+}
+
+.date-box {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 0.5rem;
+  text-align: center;
+  min-width: 50px;
+}
+
+.date-box .day { display: block; font-size: 1.2rem; font-weight: 700; line-height: 1; }
+.date-box .month { font-size: 0.7rem; text-transform: uppercase; color: #6b7280; }
+
+.job-info { flex: 1; }
+.job-info h4 { margin: 0; color: #1f2937; }
+.job-info p { margin: 0; color: #6b7280; font-size: 0.85rem; }
+
+.status-pill {
+  padding: 0.25rem 0.75rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.status-pill.scheduled { background: #eff6ff; color: #1d4ed8; }
+
+.empty-job-state {
+    color: #9ca3af;
+    font-style: italic;
+    padding: 1rem;
+    text-align: center;
+    background: #f9fafb;
+    border-radius: 12px;
+}
+
+/* --- TEAM GRID --- */
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.team-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #dbeafe;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  margin-bottom: 0.75rem;
+}
+
+.avatar-plus {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    border: 2px dashed #d1d5db;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin-bottom: 0.75rem;
+}
+
+.team-info strong { display: block; font-size: 0.9rem; color: #1f2937; }
+.team-info span { font-size: 0.75rem; color: #6b7280; }
+
+.btn-sm {
+  margin-top: 0.75rem;
+  background: #1f2937;
+  color: white;
+  border: none;
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: 100%;
+}
+
+.add-new { border-style: dashed; cursor: pointer; }
+.add-new:hover { border-color: #9ca3af; background: #f9fafb; }
+
+/* --- SIDE WIDGETS --- */
+.wallet-widget {
+  background: #1f2937;
+  color: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+.wallet-widget small { opacity: 0.8; }
+.wallet-widget .balance { font-size: 2rem; font-weight: 700; margin: 0.5rem 0 1rem 0; }
+
+.wallet-actions { display: flex; gap: 0.5rem; }
+.wallet-actions button {
+  flex: 1;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: white;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.wallet-actions button:hover { background: rgba(255,255,255,0.2); }
+
+.promo-widget {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 16px;
+  padding: 1.5rem;
+  color: #166534;
+}
+
+.promo-widget p { font-size: 0.9rem; margin: 0.5rem 0 1rem 0; }
+.btn-block {
+  width: 100%;
+  background: white;
+  border: 1px solid #86efac;
+  color: #166534;
+  padding: 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+/* --- HISTORY SECTION --- */
+.history-section {
+  background: white;
+  border-radius: 16px;
+  padding: 1.5rem;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0; /* No gap, using border */
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  padding: 1rem 0;
+  border-bottom: 1px solid #f3f4f6;
+  transition: background-color 0.2s;
+}
+
+.history-row:last-child {
+  border-bottom: none;
+}
+
+.history-row:hover {
+  background-color: #f9fafb; /* Subtle hover effect */
+  padding-left: 0.5rem; /* Slight shift */
+  padding-right: 0.5rem;
+  margin-left: -0.5rem;
+  margin-right: -0.5rem;
+  border-radius: 8px;
+}
+
+.history-icon {
+  width: 36px;
+  height: 36px;
+  background-color: #f3f4f6;
+  color: #9ca3af;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+  font-size: 0.9rem;
+}
+
+.history-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-details strong {
+  font-size: 0.95rem;
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.history-date {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.status-text {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+/* Status Colors for Text */
+.status-text.completed { color: #16a34a; }
+.status-text.cancelled { color: #dc2626; }
+.status-text.scheduled { color: #2563eb; }

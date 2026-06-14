@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Full-Time Housekeeper Placement{% endblock %}
+
+{% block content %}
+<section class="container" style="padding-top: 60px; padding-bottom: 60px; max-width: 800px;">
+    <div style="margin-bottom: 30px;">
+        <a href="{{ url_for('main.index') }}" style="color: var(--text-light); text-decoration: none; font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 15px;">‹ Back to Home</a>
+        <h1 class="section-title" style="text-align: left; margin-bottom: 10px;">Full-Time Housekeeper Placement</h1>
+        <p class="section-subtitle" style="text-align: left; margin: 0; max-width: 100%;">Find a dedicated, reliable, and vetted professional to manage your home’s cleanliness and order, allowing you to focus on what matters most.</p>
+    </div>
+
+    <div style="line-height: 1.8;">
+        <h3>Our Process</h3>
+        <p>We take the uncertainty out of hiring domestic staff. Our rigorous vetting process ensures that you are matched with candidates who are not only skilled and experienced but also trustworthy and aligned with your household's needs.</p>
+        <ul>
+            <li><strong>Comprehensive Vetting:</strong> Every candidate undergoes background checks, reference verification, and in-person interviews.</li>
+            <li><strong>Personalized Matching:</strong> We listen to your specific requirements—from scheduling to specific duties—to find the perfect fit for your home.</li>
+            <li><strong>Ongoing Support:</strong> We assist with contract negotiation and provide ongoing support to ensure a smooth and lasting employment relationship.</li>
+        </ul>
+        <div style="text-align: center; margin-top: 50px;">
+            <a href="{{ url_for('main.placement_apply', service_type='housekeeper') }}" class="cta cta-large">Start Your Search</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

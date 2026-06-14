@@ -1,0 +1,164 @@
+<div class="admin-header">
+    <h1>{{ title }}</h1>
+    <a href="{{ back_url }}" class="cta-outline">Back to {{ doc_type }}s</a>
+</div>
+
+<div class="admin-section">
+    <form method="POST" class="profile-form" style="max-width: 800px; margin: 0;">
+        {{ form.hidden_tag() }}
+        <div style="display: flex; gap: 20px;">
+            <div class="form-group" style="flex: 2;">
+                {{ form.client_or_guest_name.label(text='Client') }}
+                {{ form.client_or_guest_name(class="form-control", list="client-list", placeholder="Type new name or select existing client...") }}
+            <datalist id="client-list">
+                {% for client in client_list %}
+                <option value="{{ client.profile.full_name or client.email }}">
+                {% endfor %}
+            </datalist>
+            {% for error in form.client_or_guest_name.errors %}
+            <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+            <div class="form-group" style="flex: 1;">
+                {% if doc_type == 'Quote' %}
+                {{ form.quote_number.label }}
+                {{ form.quote_number(class="form-control", placeholder="Auto: " + get_next_quote_number()) }}
+                {% else %}
+                {{ form.invoice_number.label }}
+                {{ form.invoice_number(class="form-control", placeholder="Auto: " + get_next_invoice_number()) }}
+                {% endif %}
+            </div>
+        </div>
+            <div class="form-group" style="flex: 1;">
+                {% if doc_type == 'Quote' %}
+                    {{ form.quote_date.label }}
+                    {{ form.quote_date(class="form-control") }}
+                {% else %}
+                    {{ form.invoice_date.label }}
+                    {{ form.invoice_date(class="form-control") }}
+                {% endif %}
+            </div>
+            <div class="form-group" style="flex: 1;">
+                {% if doc_type == 'Quote' %}
+                    {{ form.expiry_date.label }}
+                    {{ form.expiry_date(class="form-control") }}
+                {% else %}
+                    {{ form.due_date.label }}
+                    {{ form.due_date(class="form-control") }}
+                {% endif %}
+            </div>
+        </div>
+
+        <hr style="margin: 20px 0;">
+
+        <div style="display: flex; gap: 20px; max-width: 400px; align-items: flex-end;">
+            <div class="form-group" style="flex: 2;">
+                {{ form.discount_value.label }}
+                {{ form.discount_value(class="form-control") }}
+            </div>
+            <div class="form-group" style="flex: 1;">
+                {{ form.discount_type.label }}
+                {{ form.discount_type(class="form-control") }}
+            </div>
+        </div>
+        <h3>Line Items</h3>
+        <div id="line-items-container">
+    {% for item in form.line_items %}
+    <div class="line-item">
+        <div class="form-group">
+            {{ item.form.description.label }}
+            {{ item.form.description(rows=2, class="form-control") }}
+            {% for error in item.form.description.errors %}
+                <span style="color: red;">[{{ error }}]</span>
+            {% endfor %}
+        </div>
+        <div style="display: flex; gap: 20px;">
+            <div class="form-group" style="flex: 1;">
+                {{ item.form.quantity.label }}
+                {{ item.form.quantity(class="form-control") }}
+                {% for error in item.form.quantity.errors %}
+                    <span style="color: red;">[{{ error }}]</span>
+                {% endfor %}
+            </div>
+            <div class="form-group" style="flex: 1;">
+                {{ item.form.unit_price.label }}
+                {{ item.form.unit_price(class="form-control") }}
+                {% for error in item.form.unit_price.errors %}
+                    <span style="color: red;">[{{ error }}]</span>
+                {% endfor %}
+            </div>
+        </div>
+        <hr>
+    </div>
+    {% endfor %}
+</div>
+        <button type="button" id="add-item-btn" class="cta-outline">Add Line Item</button>
+
+        <div style="text-align: right; margin-top: 30px;">
+            <input type="submit" value="{{ submit_text }}" class="cta">
+        </div>
+    </form>
+</div>
+
+<script>
+document.getElementById('add-item-btn').addEventListener('click', function() {
+    const container = document.getElementById('line-items-container');
+    const index = container.children.length;
+    const newItemHtml = `
+        <div class="line-item">
+            <div class="form-group">
+                <label for="line_items-${index}-description">Description</label>
+                <textarea class="form-control" id="line_items-${index}-description" name="line_items-${index}-description" rows="2"></textarea>
+            </div>
+            <div style="display: flex; gap: 20px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="line_items-${index}-quantity">Quantity</label>
+                    <input class="form-control" id="line_items-${index}-quantity" name="line_items-${index}-quantity" type="text" value="1">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="line_items-${index}-unit_price">Unit Price</label>
+                    <input class="form-control" id="line_items-${index}-unit_price" name="line_items-${index}-unit_price" type="text" value="">
+                </div>
+            </div>
+            <hr>
+        </div>
+    `;
+    container.insertAdjacentHTML('beforeend', newItemHtml);
+});
+</script>
+{% if doc_type == 'Invoice' %}
+<div class="admin-section">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+        <h2>Payment Advice</h2>
+        <button type="button" id="edit-advice-btn" class="cta-outline-small">Edit</button>
+    </div>
+    <div class="form-group">
+        {{ form.payment_advice(class="form-control", rows=8, readonly=True) }}
+    </div>
+</div>
+
+<script>
+const mainForm = document.querySelector('.profile-form');
+    const adviceTextarea = document.getElementById('payment_advice');
+
+    // If the form and textarea exist, add the listener
+    if (mainForm && adviceTextarea) {
+        mainForm.addEventListener('submit', function() {
+            // This runs just before the form is sent to the server
+            adviceTextarea.removeAttribute('readonly');
+        });
+    }
+
+    document.getElementById('edit-advice-btn').addEventListener('click', function() {
+        const isReadonly = adviceTextarea.hasAttribute('readonly');
+        if (isReadonly) {
+            adviceTextarea.removeAttribute('readonly');
+            this.textContent = 'Lock';
+            this.classList.add('cta-danger-small');
+        } else {
+            adviceTextarea.setAttribute('readonly', true);
+            this.textContent = 'Edit';
+            this.classList.remove('cta-danger-small');
+        }
+    });
+</script>
+{% endif %}

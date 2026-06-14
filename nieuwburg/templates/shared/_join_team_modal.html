@@ -1,0 +1,36 @@
+<div id="join-team-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 550px;">
+        <button id="close-join-team-modal-button" class="modal-close">&times;</button>
+        <h2 class="auth-title" style="margin-bottom: 10px;">Join the Blitz Team</h2>
+        <p style="text-align: center; margin-top: 0; margin-bottom: 25px; color: #555;">We're looking for reliable and dedicated cleaning professionals.</p>
+
+        <form id="staff-application-form" class="auth-form" method="POST">
+            <div class="form-group">
+                <label for="join-full-name">Full Name</label>
+                <input type="text" id="join-full-name" name="full_name" required>
+            </div>
+            <div class="form-group">
+                <label for="join-email">Email Address</label>
+                <input type="email" id="join-email" name="email" required>
+            </div>
+            <div class="form-group">
+                <label for="join-phone">Phone Number</label>
+                <input type="tel" id="join-phone" name="phone_number" required>
+            </div>
+            <div class="form-group">
+                <label for="join-id-number">ID Number</label>
+                <input type="text" id="join-id-number" name="id_number" required maxlength="13">
+            </div>
+            <div class="form-group">
+                <label for="join-address">Address</label>
+                <textarea id="join-address" name="address" rows="3"></textarea>
+            </div>
+            <!-- UPDATED FILE UPLOAD FIELD -->
+            <div class="form-group">
+                <label for="join-documents">Upload CV, Certificates, etc. (Optional)</label>
+                <input type="file" id="join-documents" name="documents" class="form-control" style="padding: 10px;" multiple>
+            </div>
+            <button type="submit" class="cta auth-button">Submit Application</button>
+        </form>
+    </div>
+</div>

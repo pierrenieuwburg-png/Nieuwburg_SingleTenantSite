@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Full-Time Carer Placement{% endblock %}
+
+{% block content %}
+<section class="container" style="padding-top: 60px; padding-bottom: 60px; max-width: 800px;">
+    <div style="margin-bottom: 30px;">
+        <a href="{{ url_for('main.index') }}" style="color: var(--text-light); text-decoration: none; font-weight: 500; font-size: 0.9rem; display: block; margin-bottom: 15px;">‹ Back to Home</a>
+        <h1 class="section-title" style="text-align: left; margin-bottom: 10px;">Full-Time Carer Placement</h1>
+        <p class="section-subtitle" style="text-align: left; margin: 0; max-width: 100%;">Compassionate, skilled, and respectful assistance for elderly or special-needs family members. We provide carers who enhance quality of life with dignity and professionalism.</p>
+    </div>
+
+    <div style="line-height: 1.8;">
+        <h3>Support You Can Depend On</h3>
+        <p>Finding the right carer is about more than just qualifications; it's about finding a person who is patient, empathetic, and dedicated. Our candidates are chosen for both their skills and their character.</p>
+        <ul>
+            <li><strong>Qualified Professionals:</strong> We verify all relevant certifications and training for elder care, special needs support, and medical assistance.</li>
+            <li><strong>In-depth Interviews:</strong> We assess each candidate's temperament, communication skills, and understanding of the responsibilities involved in caregiving.</li>
+            <li><strong>Tailored Placements:</strong> Whether you need companionship, mobility support, or more intensive medical care, we find the right professional for your loved one.</li>
+        </ul>
+        <div style="text-align: center; margin-top: 50px;">
+            <a href="{{ url_for('main.placement_apply', service_type='carer') }}" class="cta cta-large">Inquire About a Carer</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

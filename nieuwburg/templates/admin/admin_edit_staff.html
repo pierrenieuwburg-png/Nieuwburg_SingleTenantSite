@@ -1,0 +1,86 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}Edit Staff{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>Edit: {{ staff_member.profile.full_name }}</h1>
+    <div>
+        <a href="{{ url_for('admin_view_staff', user_id=staff_member.id) }}" class="cta-outline">← Back</a>
+        <a href="{{ url_for('admin_staff') }}" class="cta-outline">Back to Staff List</a>
+    </div>
+</div>
+
+<div class="admin-section">
+    <form method="POST" enctype="multipart/form-data" class="profile-form" style="max-width: 600px; margin: 0;">
+        {{ form.hidden_tag() }}
+        <div class="form-group profile-image-edit">
+            {% set default_avatar_url = url_for('static', filename='img/avatar_picture_profile_user_icon.png') %}
+            <img src="{{ url_for('static', filename='uploads/' + staff_member.profile.profile_image) }}"
+                 alt="Profile Preview"
+                 id="profile-preview"
+                 onerror="this.onerror=null;this.src='{{ default_avatar_url }}';">
+            
+            <label for="profile_image" class="cta-outline">Change Photo</label>
+            {{ form.profile_image(class="hidden", id="profile_image") }}
+        </div>
+
+        <div class="form-group">
+            {{ form.full_name.label }}
+            {{ form.full_name(class="form-control") }}
+        </div>
+
+        <div class="form-group">
+            <label for="email">Email (Cannot be changed)</label>
+            <input type="email" id="email" name="email" value="{{ staff_member.email }}" disabled class="form-control">
+        </div>
+
+        <div class="form-group">
+            {{ form.phone_number.label }}
+            {{ form.phone_number(class="form-control") }}
+        </div>
+
+        <div class="form-group">
+            <label for="address">Physical Address</label>
+            <textarea id="address" name="address" rows="3" class="form-control">{{ staff_member.profile.address or '' }}</textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="id_number">ID Number (13 digits)</label>
+            <input type="text" id="id_number" name="id_number" value="{{ staff_member.profile.id_number or '' }}" maxlength="13" class="form-control">
+        </div>
+        
+        <hr>
+
+        <h3>HR & Vetting</h3>
+        <div class="form-group">
+            {{ form.strengths.label }}
+            {{ form.strengths(rows=3, class="form-control") }}
+        </div>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                {{ form.has_id_copy(style="width: 20px; height: 20px;") }}
+                {{ form.has_id_copy.label }}
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                {{ form.has_drivers_license(style="width: 20px; height: 20px;") }}
+                {{ form.has_drivers_license.label }}
+            </div>
+            <div class="form-group" style="flex-direction: row; align-items: center; gap: 10px;">
+                {{ form.has_criminal_check(style="width: 20px; height: 20px;") }}
+                {{ form.has_criminal_check.label }}
+            </div>
+        </div>
+        <div class="form-group">
+            {{ form.upload_documents.label }}
+            {{ form.upload_documents(class="form-control") }}
+        </div>
+        <hr>
+        <div class="form-group">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes" rows="6" class="form-control">{{ staff_member.profile.notes or '' }}</textarea>
+        </div>
+
+        {{ form.submit(class="cta") }}
+    </form>
+</div>
+{% endblock %}

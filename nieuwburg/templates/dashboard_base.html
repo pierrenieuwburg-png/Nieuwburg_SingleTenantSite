@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Dashboard{% endblock %} - Nieuwburg Blitz</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body class="admin-body">
+    <div class="dashboard-layout">
+        <aside class="dashboard-sidebar">
+            <div class="sidebar-profile-summary">
+                <img src="{{ url_for('static', filename='uploads/' + (current_user.profile.profile_image or 'avatar_picture_profile_user_icon.png')) }}" alt="Avatar" class="sidebar-avatar">
+                <h4>{{ current_user.profile.full_name or current_user.email }}</h4>
+            </div>
+            <nav class="sidebar-nav">
+                {% if current_user.role == 'client' %}
+                    <a href="{{ url_for('main.client_dashboard') }}" class="sidebar-link {% if request.endpoint == 'main.client_dashboard' %}active{% endif %}">
+                        <i class="fa fa-dashboard"></i> <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('auth.profile') }}" class="sidebar-link {% if request.endpoint == 'auth.profile' %}active{% endif %}">
+                        <i class="fa fa-user"></i> <span>My Profile</span>
+                    </a>
+                {% elif current_user.role == 'staff' %}
+                     <a href="{{ url_for('main.staff_dashboard') }}" class="sidebar-link {% if request.endpoint == 'main.staff_dashboard' %}active{% endif %}">
+                        <i class="fa fa-calendar-check"></i> <span>My Jobs</span>
+                    </a>
+                {% endif %}
+            </nav>
+            <div class="sidebar-footer">
+                <a href="{{ url_for('main.index') }}" class="sidebar-link"><i class="fa fa-globe"></i> <span>Main Site</span></a>
+                <a href="{{ url_for('auth.logout') }}" class="sidebar-link"><i class="fa fa-sign-out"></i> <span>Logout</span></a>
+            </div>
+        </aside>
+        <main class="dashboard-main-content">
+            {% block dashboard_content %}{% endblock %}
+        </main>
+    </div>
+     <script src="https://kit.fontawesome.com/your-fontawesome-kit.js" crossorigin="anonymous"></script>
+</body>
+</html>

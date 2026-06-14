@@ -1,0 +1,78 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}View Client{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+    <h1>{{ client.profile.full_name or client.email }}</h1>
+    <div>
+        {# Corrected the url_for link below #}
+        <a href="{{ url_for('admin.clients') }}" class="cta-outline">← Back to Client List</a>
+        <a href="{{ url_for('admin.edit_client', user_id=client.id) }}" class="cta">Edit Details</a>
+    </div>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+{% if messages %}
+<div class="flash-messages" style="margin-bottom: 20px;">
+  {% for category, message in messages %}
+  <div class="flash {{ category }}">{{ message }}</div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endwith %}
+
+<div class="admin-section">
+    <h2>Client Details</h2>
+    <div class="profile-details">
+        <div class="detail-item"><label>Full Name</label><p>{{ client.profile.full_name or 'N/A' }}</p></div>
+        <div class="detail-item"><label>Email</label><p>{{ client.email }}</p></div>
+        <div class="detail-item"><label>Phone Number</label><p>{{ client.profile.phone_number or 'N/A' }}</p></div>
+        <div class="detail-item"><label>Physical Address</label><p>{{ client.profile.address or 'N/A' }}</p></div>
+        <hr>
+        <div class="detail-item"><label>Service Frequency</label><p>{{ client.profile.service_frequency or 'N/A' }}</p></div>
+        <div class="detail-item"><label>Service Fee</label><p>R{{ "%.2f"|format(client.profile.service_fee) if client.profile.service_fee else 'N/A' }}</p></div>
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2>Notes</h2>
+    <div class="notes-display">
+        <p style="white-space: pre-wrap;">{{ client.profile.notes or 'No notes have been added for this client.' }}</p>
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2>Booking History</h2>
+    {# Note: The original code referenced client.bookings which might not exist directly. #}
+    {# Assuming you query bookings related to the client in the route or adjust relationship #}
+    {# For now, let's use client.quote_requests as an example placeholder #}
+    <div class="bookings-list">
+        {% if client.quote_requests %}
+            {% for booking in client.quote_requests | sort(attribute='request_date', reverse=True) %}
+            <div class="booking-item">
+              <div class="booking-details">
+                <span class="booking-date">Requested on: {{ booking.request_date.strftime('%d %b %Y') }}</span>
+                <span class="booking-service">Service: {{ booking.primary_service or 'N/A' }}</span>
+                <span class="booking-status status-{{ booking.status.lower() if booking.status else 'unknown' }}">{{ booking.status or 'Unknown' }}</span>
+              </div>
+              <div class="booking-info">
+                 <p><strong>Property:</strong> {{ booking.property_type or 'N/A' }}</p>
+                 <p><strong>Frequency:</strong> {{ booking.service_frequency or 'N/A' }}</p>
+              </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p>This client has no quote requests or booking history.</p>
+        {% endif %}
+    </div>
+</div>
+
+<div class="admin-section">
+    <h2 style="color: #c82333;">Danger Zone</h2>
+    <form action="{{ url_for('admin.delete_client', user_id=client.id) }}" method="POST" onsubmit="return confirm('DANGER: You are about to permanently delete this client and all their data. This action cannot be undone. Are you absolutely sure?');">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <p>Permanently remove this client and all associated data from the system.</p>
+        <button type="submit" class="cta-danger">Delete Client</button>
+    </form>
+</div>
+{% endblock %}

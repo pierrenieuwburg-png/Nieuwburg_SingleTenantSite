@@ -1,0 +1,115 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice {{ invoice.invoice_number }}</title>
+    <style>
+        @page {
+            size: A4;
+            margin: 1.5cm;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11px;
+            color: #333;
+        }
+        h1, h2, h3 {
+            font-family: 'Helvetica', 'Arial', sans-serif;
+            font-weight: bold;
+        }
+        .quote-header, .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        .quote-header .logo, .invoice-header .logo {
+            width: 120px;
+        }
+        .quote-title, .invoice-title {
+            text-align: right;
+        }
+        .quote-title h1, .invoice-title h1 {
+            margin: 0;
+            font-size: 36px;
+        }
+        .quote-details, .invoice-details {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+        }
+        .line-items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .line-items-table th, .line-items-table td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .line-items-table th {
+            background-color: #f5f5f5;
+        }
+        .quote-totals, .invoice-totals {
+            margin-top: 20px;
+            width: 40%;
+            margin-left: auto;
+        }
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px;
+        }
+        .totals-row.grand-total {
+            font-weight: bold;
+            font-size: 14px;
+            background-color: #f5f5f5;
+            border-top: 2px solid #333;
+        }
+        .page-break {
+            page-break-before: always;
+        }
+        .payment-advice {
+            padding-top: 1.5cm;
+        }
+        .terms-section-view {
+            padding-top: 1cm;
+        }
+        .terms-section-view h2 {
+            border-bottom: 1px solid #e0e0e0;
+            padding-bottom: 5px;
+        }
+        .terms-section-view ul {
+            padding-left: 20px;
+            list-style-type: decimal;
+        }
+        .terms-section-view li {
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+        .bank-details {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    {# Set the variables for the first page #}
+    {% set doc_type = 'Invoice' %}
+    {% set document = invoice %}
+    
+    {# --- FIX: Updated path to point to shared folder --- #}
+    {% include 'shared/_pdf_view.html' %}
+
+    {# Add the new page for payment advice #}
+    <div class="page-break"></div>
+    <div class="payment-advice">
+        <h1>Payment Advice</h1>
+        {% if payment_advice %}
+        <div class="bank-details" style="white-space: pre-wrap;">{{ payment_advice.value }}</div>
+        {% endif %}
+    </div>
+</body>
+</html>

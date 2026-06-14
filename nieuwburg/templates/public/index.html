@@ -12,72 +12,38 @@
             ready when you are.
         </p>
         
-        <div class="search-widget-container">
-            <div class="search-widget">
-                <div class="input-group">
-                    <i class="fas fa-search input-icon"></i>
-                    <div class="input-wrapper">
-                        <label for="hero-search-input">What do you need?</label>
-                        <input type="text" id="hero-search-input" placeholder="e.g. Plumber, Cleaning, Electrician">
-                    </div>
-                </div>
-
-                <div class="input-divider"></div>
-
-                <div class="input-group">
-                    <i class="fas fa-map-marker-alt input-icon"></i>
-                    <div class="input-wrapper">
-                        <label for="hero-location-input">Where is the job?</label>
-                        <input type="text" id="hero-location-input" placeholder="Enter suburb or address (e.g. Sea Point)">
-                    </div>
-                </div>
-
-                <button id="hero-search-btn" class="search-btn">
-                    Find Pros
-                </button>
-            </div>
-            <div class="trust-badge">
-                <i class="fas fa-shield-alt"></i> <span>100% Vetted Providers & Secure Payment</span>
-            </div>
+        <div style="margin-top: 30px;">
+            <button id="hero-book-btn" class="cta cta-large" style="font-size: 1.2rem; padding: 15px 40px;">
+                Book a Clean Instantly
+            </button>
+        </div>
+        <div class="trust-badge" style="margin-top: 20px; justify-content: center;">
+            <i class="fas fa-shield-alt"></i> <span>100% Vetted Professionals & Secure Payment</span>
         </div>
     </div>
 </section>
 
-<div id="results-section" style="display: none; padding: 60px 20px; background: #f9fafb; min-height: 400px;">
-    <div class="container">
-        <div class="section-header left-aligned">
-            <h2 class="section-title">Available Pros Near You</h2>
-            <p class="section-subtitle">We found these top-rated specialists for your request.</p>
-        </div>
-        <div id="marketplace-results" class="results-grid"></div>
-    </div>
-</div>
-
 <section class="categories-section">
     <div class="container">
         <div class="section-header">
-            <h2 class="section-title">Popular Services</h2>
+            <h2 class="section-title">Our Services</h2>
+            <p class="section-subtitle">Professional cleaning solutions tailored to your needs.</p>
         </div>
         <div class="category-grid">
-            <div class="cat-card" onclick="quickSearch('Plumbing')">
-                <div class="icon">🚿</div>
-                <h3>Plumbing</h3>
+            <div class="cat-card" id="quote-button"> <div class="icon">🏠</div>
+                <h3>Standard Clean</h3>
             </div>
-            <div class="cat-card" onclick="quickSearch('Electrical')">
-                <div class="icon">⚡</div>
-                <h3>Electrical</h3>
+            <div class="cat-card" id="quote-button">
+                <div class="icon">✨</div>
+                <h3>Deep Clean</h3>
             </div>
-            <div class="cat-card" onclick="quickSearch('Cleaning')">
-                <div class="icon">🧹</div>
-                <h3>Cleaning</h3>
+            <div class="cat-card" id="quote-button">
+                <div class="icon">🔑</div>
+                <h3>End of Tenancy</h3>
             </div>
-            <div class="cat-card" onclick="quickSearch('Handyman')">
-                <div class="icon">🔨</div>
-                <h3>Handyman</h3>
-            </div>
-            <div class="cat-card" onclick="quickSearch('Painting')">
-                <div class="icon">🎨</div>
-                <h3>Painting</h3>
+            <div class="cat-card" id="quote-button">
+                <div class="icon">🏢</div>
+                <h3>Commercial</h3>
             </div>
         </div>
     </div>
@@ -89,8 +55,8 @@
             <div class="compare-card old-way">
                 <h3>🚫 The Old Way</h3>
                 <ul>
-                    <li>Calling 5 different guys, no answers.</li>
-                    <li>"I'll be there between 8am and 5pm."</li>
+                    <li>Calling 5 different companies, no answers.</li>
+                    <li>"We'll be there between 8am and 5pm."</li>
                     <li>Cash payments with no receipts.</li>
                     <li>Zero accountability if things break.</li>
                 </ul>
@@ -98,36 +64,12 @@
             <div class="compare-card blitz-way">
                 <h3>⚡ The Blitz Way</h3>
                 <ul>
-                    <li>Instant quotes & availability.</li>
-                    <li>Track your pro in real-time.</li>
-                    <li>Secure online payment (Escrow).</li>
-                    <li>Vetted, insured, and professional.</li>
+                    <li>Instant online booking & quoting.</li>
+                    <li>Professional, on-time service teams.</li>
+                    <li>Secure online payment.</li>
+                    <li>Fully vetted, insured, and accountable.</li>
                 </ul>
             </div>
-        </div>
-    </div>
-</section>
-
-<section class="partner-teaser-section">
-    <div class="container partner-container">
-        <div class="partner-content">
-            <span class="tag">For Contractors</span>
-            <h2 class="section-title" style="color: white;">Are you a Service Pro?</h2>
-            <p class="section-subtitle" style="color: #cbd5e1;">
-                Stop chasing invoices and filling gaps in your schedule. 
-                Join Nieuwburg Blitz to get a complete <strong>Business-in-a-Box</strong>.
-            </p>
-            <ul class="partner-features">
-                <li><i class="fas fa-check-circle"></i> Get a professional CRM & Booking System</li>
-                <li><i class="fas fa-check-circle"></i> Automated Invoicing & Payments</li>
-                <li><i class="fas fa-check-circle"></i> Receive new leads directly to your phone</li>
-            </ul>
-            <div class="partner-actions">
-                <a href="{{ url_for('main.pricing') }}" class="cta cta-light">View Partner Benefits</a>
-            </div>
-        </div>
-        <div class="partner-image">
-            <img src="https://placehold.co/600x400/1e293b/FFFFFF?text=Partner+Dashboard" alt="Partner Dashboard">
         </div>
     </div>
 </section>
@@ -157,48 +99,5 @@
         </div>
     </div>
 </section>
-<script src="{{ url_for('static', filename='js/marketplace.js') }}"></script>
-<script>
-    // Quick search helper for the category icons
-    function quickSearch(term) {
-        const searchInput = document.getElementById('hero-search-input');
-        const searchBtn = document.getElementById('hero-search-btn');
-        if(searchInput && searchBtn) {
-            searchInput.value = term;
-            searchBtn.click(); // Trigger the search logic
-        }
-    }
-</script>
-<div id="provider-modal" class="modal-overlay">
-    <div class="modal-content provider-spotlight">
-        <button class="modal-close" onclick="closeProviderModal()">&times;</button>
-        
-        <div class="spotlight-header">
-            <div class="spotlight-avatar" id="spotlight-avatar">A</div>
-            <div class="spotlight-info">
-                <h2 id="spotlight-business-name">Business Name</h2>
-                <div class="spotlight-badges">
-                    <span class="badge-verified"><i class="fas fa-check-circle"></i> Verified Pro</span>
-                    <span class="badge-rating">⭐ <span id="spotlight-rating">5.0</span></span>
-                    <span class="badge-year">Since <span id="spotlight-year">2024</span></span>
-                </div>
-            </div>
-        </div>
 
-        <div class="spotlight-body">
-            <div class="spotlight-service-details">
-                <h3 id="spotlight-service-title">Service Title</h3>
-                <p class="spotlight-price" id="spotlight-price">R0.00</p>
-                <div class="spotlight-description" id="spotlight-description">
-                    </div>
-            </div>
-        </div>
-
-        <div class="spotlight-footer">
-            <button id="spotlight-book-btn" class="cta cta-large" style="width: 100%;">
-                Select & Configure Booking
-            </button>
-        </div>
-    </div>
-</div>
 {% endblock %}

@@ -2751,3 +2751,88 @@ def initiate_invoice_payment():
     except Exception as e:
         print(f"Invoice Payment Init Error: {e}")
         return jsonify({'message': 'Could not initialize payment'}), 500
+    
+# ==========================================
+# PUBLIC MVP ENDPOINTS (SINGLE TENANT)
+# ==========================================
+
+@bp.route('/public/services', methods=['GET'])
+def public_get_services():
+    """Fetches services for the public booking wizard (Hardcoded to Tenant 1)"""
+    try:
+        MVP_TENANT_ID = 1 
+        categories = ServiceCategory.query.options(
+            joinedload(ServiceCategory.items)
+        ).filter_by(tenant_id=MVP_TENANT_ID).order_by(ServiceCategory.name).all()
+        
+        categories_data = []
+        for category in categories:
+            items_data = [{
+                'id': item.id,
+                'name': item.name,
+                'description': item.description,
+                'pricing_type': item.pricing_type,
+                'default_rate': item.default_rate,
+                'estimated_time_mins': item.estimated_time_mins
+            } for item in category.items]
+            
+            categories_data.append({
+                'id': category.id,
+                'name': category.name,
+                'items': items_data
+            })
+        return jsonify(categories_data), 200
+    except Exception as e:
+        print(f"Error fetching public services: {e}")
+        return jsonify({"message": "Error fetching services."}), 500
+
+
+@bp.route('/public/book', methods=['POST'])
+def public_submit_booking():
+    """Receives public booking requests (Hardcoded to Tenant 1)"""
+    data = request.get_json()
+    if not data:
+        return jsonify({"message": "No data provided."}), 400
+
+    try:
+        MVP_TENANT_ID = 1
+        
+        user = User.query.filter_by(email=data.get('email')).first()
+        if not user:
+            user = User(
+                email=data.get('email'),
+                role='client',
+                is_confirmed=False,
+                tenant_id=MVP_TENANT_ID
+            )
+            user.set_password(secrets.token_urlsafe(12))
+            profile = Profile(
+                user=user,
+                full_name=data.get('full_name'),
+                phone_number=data.get('phone_number'),
+                address=data.get('address'),
+                tenant_id=MVP_TENANT_ID
+            )
+            db.session.add(user)
+            db.session.add(profile)
+            db.session.flush()
+
+        new_request = QuoteRequest(
+            user_id=user.id,
+            name=data.get('full_name'),
+            email=data.get('email'),
+            phone=data.get('phone_number'),
+            address=data.get('address'),
+            primary_service=data.get('service_name', 'General Clean'),
+            total_price=data.get('estimated_total', 0.0),
+            status='Pending', 
+            tenant_id=MVP_TENANT_ID
+        )
+        db.session.add(new_request)
+        db.session.commit()
+        
+        return jsonify({"message": "Booking submitted successfully!"}), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error submitting public booking: {e}")
+        return jsonify({"message": "An error occurred while processing your booking."}), 500

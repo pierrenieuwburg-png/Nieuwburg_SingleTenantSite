@@ -36,10 +36,12 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    z-index: 1000;
-    background: transparent;
+    z-index: 9999;
+    background-color: #ffffff;
+    /* We manage the height strictly via the container padding and the logo height */
+    padding: 0; 
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-bottom: 1px solid transparent;
-    transition: all 0.3s ease-in-out;
 }
 
 .nav-container {
@@ -48,39 +50,46 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 20px 24px;
-    transition: all 0.3s ease-in-out;
+    padding: 20px 24px; /* Default padded height */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-logo img {
-    height: 80px;
+    height: 80px; /* Default large logo */
     display: block;
-    transition: height 0.3s ease-in-out;
+    transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .nav-actions {
     display: flex;
+    align-items: center;
     gap: 12px;
 }
 
-/* Scrolled State */
+/* --- Consolidated Scrolled State --- */
 .site-header.scrolled {
     background: #ffffff;
-    box-shadow: 0 4px 15px -5px rgba(0, 34, 68, 0.2);
-    border-bottom-color: transparent;
+    /* Retained your high-quality blue-tinted shadow */
+    box-shadow: 0 4px 15px -5px rgba(0, 34, 68, 0.2); 
+    border-bottom-color: rgba(0, 0, 0, 0.05);
 }
 
+/* Animate the container sizing change cleanly */
 .site-header.scrolled .nav-container {
-    padding-top: 10px;
-    padding-bottom: 10px;
+    padding-top: 12px;
+    padding-bottom: 12px;
 }
 
+/* Scale down the logo size smoothly without clipping */
 .site-header.scrolled .nav-logo img {
-    height: 45px;
+    height: 50px; 
 }
 
-.site-header.scrolled .cta, .site-header.scrolled .cta-outline {
-    transform: scale(0.9);
+/* Smooth transition for the buttons instead of an abrupt snap */
+.site-header.scrolled .cta, 
+.site-header.scrolled .cta-outline {
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
 }
 
 /* =======================

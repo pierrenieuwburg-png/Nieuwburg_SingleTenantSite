@@ -1,81 +1,95 @@
 <div id="booking-modal" class="modal-overlay">
-    <div class="modal-content" style="max-width: 650px;">
+    <div class="modal-content" style="max-width: 650px; position: relative;">
         <button id="close-booking-modal-button" class="modal-close">&times;</button>
         
-        <div id="booking-step-1">
+        <!-- STEP 1: CATEGORY -->
+        <div id="booking-step-1" class="wizard-step-container active">
             <h2 class="auth-title">Book a Service</h2>
-            <p style="text-align: center; margin-top: -5px; margin-bottom: 25px; color: #555;">Select a category to get started.</p>
-            <div id="booking-category-list">
-                <p>Loading services...</p>
+            <p style="text-align: center; color: #555;">Select a category to get started.</p>
+            
+            <div class="wizard-category-grid" id="wizard-categories">
+                <p style="text-align: center; width: 100%;">Loading services...</p>
             </div>
-             <p style="text-align: center; font-size: 0.9rem; margin-top: 20px;">
-                Need something more specific? <a href="#" id="specialized-quote-btn" style="color: var(--accent);">Request a specialized quote</a>.
-            </p>
         </div>
 
-        <div id="booking-step-2-address" class="hidden">
+        <!-- STEP 2: LOCATION (MAP FIXED) -->
+        <div id="booking-step-2" class="wizard-step-container">
             <h2 class="auth-title">Service Address</h2>
-            <p style="text-align: center; margin-top: -15px; margin-bottom: 25px; color: #555;">Where will the service take place?</p>
-            <div class="form-group">
+            <p style="text-align: center; color: #555;">Where are we heading?</p>
+            
+            <div class="form-group" style="margin-top: 20px;">
                 <label for="street-address">Street Address</label>
-                <input type="text" id="street-address" name="street-address" placeholder="Start typing your address...">
+                <!-- ID restored for Google Maps API -->
+                <input type="text" id="street-address" class="auth-input" placeholder="Start typing your address..." style="width: 100%; padding: 12px;">
             </div>
-            <div id="map"></div>
-            <div class="modal-actions" style="justify-content: space-between;">
-                <button class="cta-outline booking-back-btn" data-target-step="1">Back</button>
-                <button id="booking-address-next-btn" class="cta">Next: Service Details</button>
+            
+            <!-- Map Container Restored -->
+            <div id="map" style="height: 250px; width: 100%; margin-top: 15px; border-radius: 8px; border: 1px solid #e5e7eb;"></div>
+            
+            <div class="modal-actions" style="justify-content: space-between; margin-top: 30px;">
+                <button class="cta-outline" onclick="goToStep(1)" style="border-color: var(--wizard-purple); color: var(--wizard-purple);">Back</button>
+                <button class="cta" onclick="goToStep(3)" style="background: var(--wizard-turquoise); border-color: var(--wizard-turquoise);">Next: Scope & Extras</button>
             </div>
         </div>
 
-        <div id="booking-step-3-details" class="hidden">
-             <h2 class="auth-title" id="booking-step-3-title">Service Details</h2>
-             <div id="booking-calculator-content" class="booking-calculator-form">
-                </div>
-             <div id="booking-summary-container" class="booking-summary hidden">
-                <div class="summary-item">
-                    <span>Estimated Price:</span>
-                    <strong id="booking-price-total">R0.00</strong>
-                </div>
-                <div class="summary-item">
-                    <span>Estimated Time:</span>
-                    <strong id="booking-time-total">0 mins</strong>
-                </div>
+        <!-- STEP 3: CART & SCOPE (SWEEPSOUTH STYLE) -->
+        <div id="booking-step-3" class="wizard-step-container">
+             <h2 class="auth-title">Build Your Service</h2>
+             <p style="text-align: center; color: #555;">Tell us about the space and select any extras.</p>
+             
+             <!-- Primary Scope (Counters) -->
+             <div class="wizard-scope-section" id="wizard-scope-items">
+                 <!-- Injected via JS -->
              </div>
-             <div class="modal-actions" style="justify-content: space-between;">
-                <button class="cta-outline booking-back-btn" data-target-step="2">Back</button>
-                <button id="booking-next-step-btn" class="cta">Next: Confirm Details</button>
+
+             <!-- Extras (Icon Grid) -->
+             <h3 style="font-size: 1rem; color: #002244; margin-bottom: 5px;">What extras do you need?</h3>
+             <div class="wizard-extras-grid" id="wizard-extras-items">
+                 <!-- Injected via JS -->
+             </div>
+
+             <div class="wizard-live-total">
+                 <span>Estimated Total:</span>
+                 <span id="wizard-live-price">R 0.00</span>
+             </div>
+
+             <div class="modal-actions" style="justify-content: space-between; margin-top: 20px;">
+                <button class="cta-outline" onclick="goToStep(2)" style="border-color: var(--wizard-purple); color: var(--wizard-purple);">Back</button>
+                <button class="cta" onclick="goToStep(4)" style="background: var(--wizard-orange); border-color: var(--wizard-orange);">Next: Schedule</button>
             </div>
         </div>
 
-        <div id="booking-step-4-confirm" class="hidden">
-            <h2 class="auth-title">Confirm Your Booking</h2>
-            <div class="form-group">
-                <p><strong>Service Address:</strong> <span id="address-display-text"></span></p>
+        <!-- STEP 4: SCHEDULE & PAY (BUTTON FIXED) -->
+        <div id="booking-step-4" class="wizard-step-container">
+            <h2 class="auth-title">Schedule & Checkout</h2>
+            
+            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Date</label>
+                    <input type="date" id="wizard-date" class="auth-input" style="width: 100%; padding: 12px;" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Time</label>
+                    <input type="time" id="wizard-time" class="auth-input" style="width: 100%; padding: 12px;" required>
+                </div>
             </div>
-            <div class="form-group">
-                <label for="booking-date">Select Date & Time</label>
-                <input type="date" id="booking-date" name="booking-date" required>
-                <select id="booking-time" name="booking-time" required disabled>
-                    <option>Please select a date first</option>
-                </select>
+
+            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            
+            <div style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label>Full Name</label>
+                    <input type="text" id="wizard-name" class="auth-input" placeholder="Jane Doe" style="width: 100%; padding: 12px;" required>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label>Email Address</label>
+                    <input type="email" id="wizard-email" class="auth-input" placeholder="you@example.com" style="width: 100%; padding: 12px;" required>
+                </div>
             </div>
-            <hr>
-            <p>Please provide your contact details:</p>
-            <div class="form-group">
-                <label for="customer-name">Full Name</label>
-                <input type="text" id="customer-name" value="{{ current_user.profile.full_name if current_user.is_authenticated else '' }}" required>
-            </div>
-            <div class="form-group">
-                <label for="customer-email">Email</label>
-                <input type="email" id="customer-email" value="{{ current_user.email if current_user.is_authenticated else '' }}" required>
-            </div>
-            <div class="form-group">
-                <label for="customer-phone">Phone Number</label>
-                <input type="tel" id="customer-phone" value="{{ current_user.profile.phone_number if current_user.is_authenticated else '' }}" required>
-            </div>
-            <div class="modal-actions" style="justify-content: space-between;">
-                <button class="cta-outline booking-back-btn" data-target-step="3">Back</button>
-                <button id="booking-confirm-btn" class="cta">Confirm & Proceed to Payment</button>
+
+            <div class="modal-actions" style="justify-content: space-between; margin-top: 30px;">
+                <button class="cta-outline" onclick="goToStep(3)" style="border-color: var(--wizard-purple); color: var(--wizard-purple);">Back</button>
+                <button class="cta" id="wizard-pay-btn" style="background: var(--wizard-green); border-color: var(--wizard-green); width: 60%;">Pay & Book</button>
             </div>
         </div>
     </div>

@@ -212,11 +212,8 @@ def get_quote_detail(quote_id):
         return jsonify({"message": "Permission denied"}), 403
 
     try:
-        # TENANT AWARE
-        quote = QuoteRequest.query.filter_by(
-            id=quote_id, 
-            tenant_id=current_user.tenant_id
-        ).first()
+        # DIAGNOSTIC/MVP MODE: Strip Tenant Filter
+        quote = QuoteRequest.query.filter_by(id=quote_id).first()
         
         if not quote:
             return jsonify({"message": "Quote request not found"}), 404
@@ -252,6 +249,7 @@ def get_quote_detail(quote_id):
     
     except Exception as e:
         print(f"Error fetching quote detail {quote_id}: {e}")
+        import traceback
         traceback.print_exc()
         return jsonify({"message": f"An internal server error occurred: {str(e)}"}), 500
     
@@ -597,28 +595,23 @@ def api_delete_quote(item_id):
     
     try:
         if item_type == 'request':
-            # TENANT AWARE
-            quote_req = QuoteRequest.query.filter_by(
-                id=item_id,
-                tenant_id=current_user.tenant_id
-            ).first()
+            # DIAGNOSTIC/MVP MODE: Strip Tenant Filter
+            quote_req = QuoteRequest.query.filter_by(id=item_id).first()
 
             if not quote_req:
                 return jsonify({"message": "Quote Request not found"}), 404
             
             item_desc = quote_req.subject or quote_req.name or f"Request #{quote_req.id}"
             db.session.delete(quote_req)
+            from .utils import log_activity
             log_activity(
                 'Quote Request Deleted',
                 f"Admin '{current_user.email}' deleted quote request: {item_desc} (ID: {item_id})."
             )
             
         elif item_type == 'quote':
-            # TENANT AWARE
-            quote = Quote.query.filter_by(
-                id=item_id,
-                tenant_id=current_user.tenant_id
-            ).first()
+            # DIAGNOSTIC/MVP MODE: Strip Tenant Filter
+            quote = Quote.query.filter_by(id=item_id).first()
 
             if not quote:
                 return jsonify({"message": "Formal Quote not found"}), 404
@@ -628,6 +621,7 @@ def api_delete_quote(item_id):
             QuoteLineItem.query.filter_by(quote_id=item_id).delete()
             db.session.delete(quote)
             
+            from .utils import log_activity
             log_activity(
                 'Quote Deleted',
                 f"Admin '{current_user.email}' deleted quote: {item_desc} (ID: {item_id})."
@@ -642,6 +636,7 @@ def api_delete_quote(item_id):
     except Exception as e:
         db.session.rollback()
         print(f"Error deleting quote item {item_id} (type: {item_type}): {e}")
+        import traceback
         traceback.print_exc()
         return jsonify({"message": f"An internal server error occurred: {str(e)}"}), 500
     
@@ -1996,12 +1991,9 @@ def get_all_quotes():
         combined_list = []
         sast = pytz.timezone('Africa/Johannesburg') 
 
-        # 1. Get all QuoteRequests (Leads) - TENANT AWARE
-        quote_requests = QuoteRequest.query.options(
-            joinedload(QuoteRequest.user).joinedload(User.profile)
-        ).filter(
-            QuoteRequest.tenant_id == current_user.tenant_id
-        ).all()
+        # --- DIAGNOSTIC MODE: STRIP ALL FILTERS ---
+        # Fetch literally every quote in the database, ignoring Tenant IDs completely.
+        quote_requests = QuoteRequest.query.all()
         
         for req in quote_requests:
             formatted_date = 'N/A'
@@ -2026,20 +2018,16 @@ def get_all_quotes():
                 "client_name": client_name or "N/A",
                 "client_phone": client_phone or "N/A",
                 "service": req.subject or req.primary_service or "Specialized Request",
-                "property_type": req.property_type or "N/A",
+                "property_type": req.property_type if req.property_type and req.property_type != "N/A" else "",
                 "frequency": req.service_frequency or "N/A",
-                "total_price": req.total_price,
+                "total_price": req.total_price or 0.0,
                 "status": req.status or "Unknown",
                 "view_url": f"/quotes/{req.id}", 
                 "user_id": req.user_id
             })
 
-        # 2. Get all formal Quotes (Manually created) - TENANT AWARE
-        formal_quotes = Quote.query.options(
-            joinedload(Quote.user).joinedload(User.profile)
-        ).filter(
-            Quote.tenant_id == current_user.tenant_id
-        ).all()
+        # DIAGNOSTIC MODE: NO FILTERS
+        formal_quotes = Quote.query.all()
 
         for quote in formal_quotes:
             formatted_date = 'N/A'
@@ -2062,9 +2050,9 @@ def get_all_quotes():
                 "client_name": client_name or "N/A",
                 "client_phone": client_phone or "N/A",
                 "service": f"Formal Quote ({quote.quote_number})", 
-                "property_type": "N/A",
+                "property_type": req.property_type if req.property_type and req.property_type != "N/A" else "",
                 "frequency": "N/A",
-                "total_price": quote.total, 
+                "total_price": quote.total or 0.0,
                 "status": quote.status or "Unknown",
                 "view_url": f"/quotes/formal/{quote.id}", 
                 "user_id": quote.user_id
@@ -2074,7 +2062,10 @@ def get_all_quotes():
             try:
                 return datetime.strptime(item['request_date'], '%d %b %Y, %H:%M')
             except ValueError:
-                return datetime.strptime(item['request_date'], '%d %b %Y')
+                try:
+                    return datetime.strptime(item['request_date'], '%d %b %Y')
+                except ValueError:
+                    return datetime.min
 
         combined_list.sort(key=sort_key, reverse=True)
         
@@ -2082,6 +2073,7 @@ def get_all_quotes():
         
     except Exception as e:
         print(f"Error fetching all quotes: {e}") 
+        import traceback
         traceback.print_exc() 
         return jsonify({"message": "Error fetching quote data."}), 500
     

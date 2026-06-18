@@ -36,7 +36,7 @@ body {
     top: 0;
     left: 0;
     width: 100%;
-    z-index: 9999;
+    z-index: 999;
     background-color: #ffffff;
     /* We manage the height strictly via the container padding and the logo height */
     padding: 0; 
@@ -4587,4 +4587,137 @@ input.valid-input {
     box-sizing: border-box;
     text-align: center;
     display: block; /* Ensures width applies */
+}
+
+/* --- VIBRANT BOOKING WIZARD --- */
+:root {
+  --wizard-purple: #8B5CF6;
+  --wizard-turquoise: #06B6D4;
+  --wizard-orange: #F97316;
+  --wizard-green: #10B981;
+}
+
+.wizard-step-container {
+  display: none;
+  animation: fadeInRight 0.4s ease forwards;
+}
+.wizard-step-container.active {
+  display: block;
+}
+
+@keyframes fadeInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+/* Category Cards */
+.wizard-category-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 15px;
+  margin-top: 20px;
+}
+.wizard-cat-card {
+  background: white;
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.wizard-cat-card:hover {
+  border-color: var(--wizard-turquoise);
+  box-shadow: 0 10px 15px -3px rgba(6, 182, 212, 0.2);
+  transform: translateY(-3px);
+}
+
+/* Add-ons & Extras */
+.wizard-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+.wizard-counter {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+.wizard-counter button {
+  background: var(--wizard-purple);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  font-weight: bold;
+}
+.wizard-toggle {
+  accent-color: var(--wizard-orange);
+  width: 20px;
+  height: 20px;
+}
+
+/* Live Total Footer */
+.wizard-live-total {
+  background: var(--wizard-green);
+  color: white;
+  padding: 15px 20px;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-top: 20px;
+}
+
+/* --- WIZARD EXTRAS GRID (SweepSouth Style) --- */
+.wizard-scope-section {
+  margin-bottom: 25px;
+  background: #f9fafb;
+  padding: 15px;
+  border-radius: 8px;
+}
+.wizard-extras-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 15px;
+}
+.wizard-extra-tile {
+  border: 2px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 15px 5px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+}
+.wizard-extra-tile i {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: #9ca3af;
+  transition: color 0.2s ease;
+}
+.wizard-extra-tile span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #4b5563;
+}
+.wizard-extra-tile.selected {
+  border-color: var(--wizard-turquoise);
+  background: #e0f2fe;
+}
+.wizard-extra-tile.selected i {
+  color: var(--wizard-turquoise);
 }

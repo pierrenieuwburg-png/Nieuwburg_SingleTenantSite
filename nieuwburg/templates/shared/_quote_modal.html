@@ -1,9 +1,10 @@
 <div id="quote-modal" class="modal-overlay">
     <div class="modal-content" style="max-width: 650px;">
         <button id="close-quote-modal-button" class="modal-close">&times;</button>
-        <h2 class="auth-title">Request a Specialized Quote</h2>
+        
+        <h2 class="auth-title">Service & Management Inquiry</h2>
         <p style="text-align: center; margin-top: -5px; margin-bottom: 25px; color: #555;">
-            For unique, large, or specialized jobs, please provide the details below.
+            Let us know how we can help manage your domestic worker or handle a custom cleaning request.
         </p>
         
         <form id="quote-request-form" class="auth-form-modal" style="display: block;">
@@ -11,34 +12,44 @@
             <div id="quote-alert-placeholder" class="flash" style="display: none; margin-bottom: 15px;"></div>
 
             <div class="form-group">
-                <label for="quote-name">Full Name</label>
+                <label for="quote-service-type" style="font-weight: 600; color: #333;">What can we help you with?</label>
+                <select class="auth-input" id="quote-service-type" name="subject" required style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 1rem; background-color: #fff;">
+                    <option value="" disabled selected>Select an option...</option>
+                    <option value="Domestic Management: Payroll & UIF">Domestic Management: Payroll & UIF</option>
+                    <option value="Domestic Management: Full HR Partner">Domestic Management: Full HR Partner</option>
+                    <option value="Domestic Management: Premium Cover">Domestic Management: Premium Cover</option>
+                    <option value="Specialized Cleaning Quote">Specialized / Custom Cleaning Job</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="quote-name" style="font-weight: 600; color: #333;">Full Name</label>
                 <input type="text" class="auth-input" id="quote-name" name="name" required
-                       value="{{ current_user.profile.full_name if current_user.is_authenticated and current_user.profile else '' }}">
+                       value="{{ current_user.profile.full_name if current_user.is_authenticated and current_user.profile else '' }}" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
             </div>
-            <div class="form-group">
-                <label for="quote-email">Email Address</label>
-                <input type="email" class="auth-input" id="quote-email" name="email" required
-                       value="{{ current_user.email if current_user.is_authenticated else '' }}">
+            
+            <div class="form-row" style="display: flex; gap: 15px;">
+                <div class="form-group" style="flex: 1;">
+                    <label for="quote-email" style="font-weight: 600; color: #333;">Email Address</label>
+                    <input type="email" class="auth-input" id="quote-email" name="email" required
+                           value="{{ current_user.email if current_user.is_authenticated else '' }}" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label for="quote-phone" style="font-weight: 600; color: #333;">Phone Number</label>
+                    <input type="tel" class="auth-input" id="quote-phone" name="phone" required
+                           value="{{ current_user.profile.phone_number if current_user.is_authenticated and current_user.profile else '' }}" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 1rem;">
+                </div>
             </div>
+            
             <div class="form-group">
-                <label for="quote-phone">Phone Number</label>
-                <input type="tel" class="auth-input" id="quote-phone" name="phone" required
-                       value="{{ current_user.profile.phone_number if current_user.is_authenticated and current_user.profile else '' }}">
-            </div>
-            <div class="form-group">
-                <label for="quote-address">Property Address (Optional)</label>
-                <input type="text" class="auth-input" id="quote-address" name="address"
-                       value="{{ current_user.profile.address if current_user.is_authenticated and current_user.profile else '' }}">
-            </div>
-            <div class="form-group">
-                <label for="quote-description">Quote Details</label>
+                <label for="quote-description" style="font-weight: 600; color: #333;">Additional Details</label>
                 <textarea class="auth-input" id="quote-description" name="description" rows="4"
-                          placeholder="e.g., 'Post-construction clean for multiple units'..." required></textarea>
+                          placeholder="e.g., 'My domestic worker is here 3 days a week. I need help registering her for UIF...'" required style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px; font-family: inherit; font-size: 1rem; resize: vertical;"></textarea>
             </div>
-
-            <div class="form-group">
-                <button type="submit" class="cta w-100" id="quote-submit-btn">
-                    Submit Quote Request
+            
+            <div class="form-group" style="margin-top: 15px;">
+                <button type="submit" class="cta" id="quote-submit-btn" style="width: 100%; font-size: 1.1rem; padding: 14px;">
+                    Submit Inquiry
                 </button>
             </div>
         </form>

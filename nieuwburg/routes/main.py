@@ -4,7 +4,7 @@ import traceback
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
 from flask_mail import Message
-from datetime import date
+from datetime import datetime, date
 
 from .. import db, mail
 from ..models import Post, User, Quote, Invoice, QuoteRequest, Job, Tenant
@@ -302,3 +302,84 @@ def payment_callback():
 @bp.route('/check-email')
 def check_email():
     return render_template('public/check_email.html')
+
+# --- Public API Routes ---
+
+@bp.route('/api/request-quote', methods=['POST'])
+def request_quote():
+    data = request.get_json()
+    
+    name = data.get('name')
+    email = data.get('email')
+    phone = data.get('phone')
+    subject = data.get('subject')
+    description = data.get('description')
+    
+    if not name or not email or not subject:
+        return jsonify({'message': 'Please fill in all required fields.'}), 400
+        
+    try:
+        # Create the new record AND set the exact request date
+        new_request = QuoteRequest( 
+            name=name,
+            email=email,
+            phone=phone,
+            subject=subject,
+            description=description,
+            status='Pending',
+            request_date=datetime.utcnow()  # <-- FIX: Forces it to show up on the dashboard
+        )
+        
+        if current_user.is_authenticated:
+            new_request.user_id = current_user.id
+            
+        db.session.add(new_request)
+        db.session.commit()
+        
+        # --- SEND EMAIL NOTIFICATION ---
+        try:
+            # Make sure these are imported at the top of main.py if they aren't already:
+            from threading import Thread
+            from flask import current_app
+            from flask_mail import Message
+            from .utils import send_async_email
+
+            html_body = render_template(
+                'email/admin_quote_notification.html',
+                data={
+                    'name': name,
+                    'email': email,
+                    'phone': phone,
+                    'address': 'Not required for this inquiry', 
+                    'description': description
+                },
+                category_name=subject,
+                logo_url=url_for('static', filename='img/LogoBlackWithTitle.png', _external=True)
+            )
+            
+            # Build the message object
+            msg = Message(
+                subject=f"New Lead Alert: {subject}",
+                sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
+                recipients=["peerinnoveer@gmail.com"],
+                html=html_body
+            )
+            
+            # Grab the actual application context and fire the thread
+            app = current_app._get_current_object()
+            thr = Thread(target=send_async_email, args=[app, msg])
+            thr.start()
+            
+        except Exception as email_err:
+            print(f"Warning: Email failed to set up - {email_err}")
+
+        
+        return jsonify({
+            'status': 'ok', 
+            'message': 'Inquiry submitted successfully! We will contact you shortly.'
+        }), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error saving quote: {e}")
+        return jsonify({'message': 'A database error occurred. Please try again.'}), 500

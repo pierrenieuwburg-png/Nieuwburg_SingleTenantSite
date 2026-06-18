@@ -1,39 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Partner with Nieuwburg Blitz{% endblock %}
+{% block title %}Domestic Management Plans - Nieuwburg Blitz{% endblock %}
 
 {% block content %}
 
 <div class="pricing-header-section">
     <div class="container" style="max-width: 800px;">
-        <h1 class="hero-title" style="font-size: 3rem; color: #ffffff; margin-bottom: 40px; text-shadow: 0 2px 10px rgba(0,0,0,0.3);">
-            Run Your Business Like A Pro.
+        <h1 class="hero-title" style="font-size: 3.5rem; color: #ffffff; margin-bottom: 30px; text-shadow: 0 2px 10px rgba(0,0,0,0.3);">
+            We Handle The Admin.<br>You Enjoy Your Home.
         </h1>
         
         <div class="manifesto-content" style="font-size: 1.15rem; line-height: 1.8; color: #e2e8f0;">
-            <p>In business, every detail matters. Every client you serve, every moment you show up, every decision shapes your day.</p>
+            <p>Employing a domestic worker in South Africa comes with strict legal responsibilities. From UIF registrations and COIDA compliance, to employment contracts, payslips, and managing annual leave.</p>
             
-            <p>But often, the tools you rely on feel scattered: messages in one place, invoices in another, booking notes somewhere else.</p>
+            <p>Most homeowners don't have the time or legal knowledge to handle it correctly—leaving them exposed to CCMA disputes and fines.</p>
             
-            <div style="margin: 50px 0;">
-                <h2 style="font-family: 'Oswald', sans-serif; color: #60a5fa; font-size: 2.2rem;">Nieuwburg Blitz changes that.</h2>
+            <div style="margin: 40px 0;">
+                <h2 style="font-family: 'Oswald', sans-serif; color: #60a5fa; font-size: 2.2rem;">Nieuwburg Blitz takes the risk off your shoulders.</h2>
             </div>
             
-            <p>Built specifically for South Africa’s service entrepreneurs, Nieuwburg Blitz brings your entire operation into one seamless system. Quotes, invoices, bookings, staff scheduling, and payments — all connected, all working in sync.</p>
-            
-            <div style="margin: 50px 0; padding: 30px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; border: 1px dashed rgba(255, 255, 255, 0.2);">
-                <p style="margin: 0 0 15px; color: #cbd5e1; font-weight: 500;">No more juggling apps.</p>
-                <p style="margin: 0 0 15px; color: #cbd5e1; font-weight: 500;">No more chasing paperwork.</p>
-                <p style="margin: 0 0 30px; color: #cbd5e1; font-weight: 500;">No more clutter slowing you down.</p>
-                
-                <h3 style="margin: 0; font-size: 1.8rem; color: #ffffff; letter-spacing: 1px;">Just Clarity. Control. Confidence.</h3>
-            </div>
-            
-            <p>With Nieuwburg Blitz, you run smoother, earn faster, deliver better, and present your business with true professionalism — from the very first interaction to the final paid invoice.</p>
+            <p>We offer comprehensive domestic worker management. Whether you need us to simply process monthly payslips and UIF, or fully manage your employee with HR support, training, and sick-leave cover, we have a plan for you.</p>
             
             <p style="margin-top: 40px; font-weight: 700; color: #ffffff; font-size: 1.3rem;">
-                This is what it means to run your business like a pro.<br>
-                This is Nieuwburg Blitz.
+                Keep the domestic worker you love.<br>Lose the legal headaches.
             </p>
         </div>
         
@@ -47,67 +36,65 @@
     <div class="container">
         
         <div class="section-header">
-            <h2 class="section-title">Choose Your Power</h2>
+            <h2 class="section-title">Management Plans</h2>
             <p class="section-subtitle">
-                Select the toolkit that matches your ambition.
+                Select the level of support you need for your household staff.
             </p>
         </div>
 
         <div class="pricing-grid">
 
             <div class="pricing-card">
-                <h3 class="pricing-title">Basic</h3>
-                <p class="pricing-subtitle">For individuals and new businesses</p>
+                <h3 class="pricing-title">Payroll & UIF</h3>
+                <p class="pricing-subtitle">Essential Legal Compliance</p>
                 <div class="pricing-price">
-                    R 499 <span class="price-per">/ mo</span>
+                    R 250 <span class="price-per">/ mo</span>
                 </div>
-                <p class="pricing-desc">Get your core operations online and automated.</p>
+                <p class="pricing-desc">Perfect for homeowners who just want the legal paperwork handled.</p>
                 <ul class="pricing-features">
-                    <li><i class="fas fa-check"></i> Smart Quoting System</li>
-                    <li><i class="fas fa-check"></i> Invoicing & Payments</li>
-                    <li><i class="fas fa-check"></i> Client Management (CRM)</li>
-                    <li><i class="fas fa-check"></i> Public "Blitz Marketplace" Profile</li>
-                    <li style="opacity: 0.5;"><i class="fas fa-times"></i> Staff Portal & Job Scheduling</li>
-                    <li style="opacity: 0.5;"><i class="fas fa-times"></i> Multi-User Admin Access</li>
+                    <li><i class="fas fa-check"></i> Monthly Digital Payslips</li>
+                    <li><i class="fas fa-check"></i> UIF Registration & Monthly Submissions</li>
+                    <li><i class="fas fa-check"></i> COIDA (Workman's Comp) Reg</li>
+                    <li><i class="fas fa-check"></i> Standard Employment Contract</li>
+                    <li style="opacity: 0.5;"><i class="fas fa-times"></i> CCMA / HR Dispute Support</li>
+                    <li style="opacity: 0.5;"><i class="fas fa-times"></i> Sick Leave Replacement Staff</li>
                 </ul>
-                <a href="{{ url_for('main.subscribe', plan_type='basic') }}" class="cta-outline">Get Started</a>
+                <button type="button" id="pricing-tier-1" class="cta-outline">Inquire Now</button>
             </div>
 
             <div class="pricing-card featured">
                 <div class="popular-badge">Most Popular</div>
-                <h3 class="pricing-title">Pro</h3>
-                <p class="pricing-subtitle">For established and growing teams</p>
+                <h3 class="pricing-title">Full HR Partner</h3>
+                <p class="pricing-subtitle">Peace of Mind Management</p>
                 <div class="pricing-price">
-                    R 1299 <span class="price-per">/ mo</span>
+                    R 499 <span class="price-per">/ mo</span>
                 </div>
-                <p class="pricing-desc">The complete "Business-in-a-Box" solution.</p>
+                <p class="pricing-desc">We act as your dedicated HR department for your domestic worker.</p>
                 <ul class="pricing-features">
-                    <li><i class="fas fa-check"></i> Smart Quoting System</li>
-                    <li><i class="fas fa-check"></i> Invoicing & Payments</li>
-                    <li><i class="fas fa-check"></i> Client Management (CRM)</li>
-                    <li><i class="fas fa-check"></i> Public "Blitz Marketplace" Profile</li>
-                    <li><i class="fas fa-check"></i> Staff Portal & Job Scheduling</li>
-                    <li><i class="fas fa-check"></i> Multi-User Admin Access</li>
+                    <li><i class="fas fa-check"></i> Everything in Payroll & UIF</li>
+                    <li><i class="fas fa-check"></i> CCMA Representation & Legal Support</li>
+                    <li><i class="fas fa-check"></i> Disciplinary & Performance Management</li>
+                    <li><i class="fas fa-check"></i> Bi-Annual Skills Training (Cleaning/Hygiene)</li>
+                    <li><i class="fas fa-check"></i> Leave & Sick Day Tracking</li>
+                    <li style="opacity: 0.5;"><i class="fas fa-times"></i> Sick Leave Replacement Staff</li>
                 </ul>
-                <a href="{{ url_for('main.subscribe', plan_type='pro') }}" class="cta">Get Started</a>
+                <button type="button" id="pricing-tier-2" class="cta">Inquire Now</button>
             </div>
 
             <div class="pricing-card">
-                <h3 class="pricing-title">Intermediate</h3>
-                <p class="pricing-subtitle">For small teams needing more</p>
+                <h3 class="pricing-title">Premium Cover</h3>
+                <p class="pricing-subtitle">Uninterrupted Home Service</p>
                 <div class="pricing-price">
-                    R 899 <span class="price-per">/ mo</span>
+                    R 950 <span class="price-per">/ mo</span>
                 </div>
-                <p class="pricing-desc">Unlock powerful scheduling and team tools.</p>
+                <p class="pricing-desc">Full HR management plus guaranteed cover when your worker is absent.</p>
                 <ul class="pricing-features">
-                    <li><i class="fas fa-check"></i> Smart Quoting System</li>
-                    <li><i class="fas fa-check"></i> Invoicing & Payments</li>
-                    <li><i class="fas fa-check"></i> Client Management (CRM)</li>
-                    <li><i class="fas fa-check"></i> Public "Blitz Marketplace" Profile</li>
-                    <li><i class="fas fa-check"></i> Staff Portal & Job Scheduling</li>
-                    <li style="opacity: 0.5;"><i class="fas fa-times"></i> Multi-User Admin Access</li>
+                    <li><i class="fas fa-check"></i> Everything in Full HR Partner</li>
+                    <li><i class="fas fa-check"></i> <strong>Guaranteed Replacement Staff</strong> (Up to 15 sick/annual leave days)</li>
+                    <li><i class="fas fa-check"></i> One Free Deep Blitz Clean annually</li>
+                    <li><i class="fas fa-check"></i> Dedicated Account Manager</li>
                 </ul>
-                <a href="{{ url_for('main.subscribe', plan_type='intermediate') }}" class="cta-outline">Get Started</a>
+                <button type="button" id="pricing-tier-3" class="cta-outline">Inquire Now</button>
             </div>
 
         </div>
@@ -121,23 +108,23 @@
         </div>
         
         <div class="faq-item">
-            <button class="faq-question">Do I need to be vetted to join?</button>
+            <button class="faq-question">What happens if my domestic worker takes you to the CCMA?</button>
             <div class="faq-answer">
-                <p>You can sign up and use the software immediately to manage your existing clients. However, to appear in the Public Marketplace search results and get new leads, you must upload your trade documents (ID/Trade Certificate) for verification.</p>
+                <p>If you are on our Full HR or Premium Cover plans, we step in to handle the dispute. We ensure that all warnings, performance reviews, and dismissals are handled strictly by the book, protecting you from unfair dismissal claims and fines.</p>
             </div>
         </div>
 
         <div class="faq-item">
-            <button class="faq-question">How do I get paid?</button>
+            <button class="faq-question">Does the Premium Cover replacement staff cost extra?</button>
             <div class="faq-answer">
-                <p>You can accept payments directly through the platform via Paystack. The money goes into your account instantly (minus standard processing fees). We handle the invoices automatically.</p>
+                <p>No. If your domestic worker is sick or takes approved annual leave (up to the legal limit of 15 days), we will dispatch one of our vetted Nieuwburg Blitz cleaning professionals to cover their shift at no extra cost to you.</p>
             </div>
         </div>
 
         <div class="faq-item">
-            <button class="faq-question">Can I cancel anytime?</button>
+            <button class="faq-question">Do I still pay my domestic worker directly?</button>
             <div class="faq-answer">
-                <p>Yes. There are no long-term contracts. You can cancel your subscription at any time from your dashboard.</p>
+                <p>Yes. You still pay your domestic worker their salary directly. The monthly fee you pay to Nieuwburg Blitz covers the administrative, legal, and operational management of their employment.</p>
             </div>
         </div>
     </div>

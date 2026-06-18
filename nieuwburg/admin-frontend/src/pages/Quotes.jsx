@@ -99,8 +99,7 @@ function Quotes() {
     }
   };
 
-  // *** NEW FUNCTION: Add handler for deleting a quote ***
-  const handleDeleteQuote = async (quoteId, quoteType) => { // <-- It needs 'quoteType'
+  const handleDeleteQuote = async (quoteId, quoteType, listId) => { // <-- Added listId here
     if (!csrfToken) {
       setFlashMessage({ type: 'error', text: "CSRF token missing. Please refresh." });
       return;
@@ -111,7 +110,6 @@ function Quotes() {
     }
     
     try {
-      // *** THIS IS THE FIX: Pass ?type=... in the URL ***
       const response = await fetch(`/api/admin/quotes/${quoteId}?type=${quoteType}`, {
         method: 'DELETE', 
         headers: {
@@ -126,8 +124,7 @@ function Quotes() {
         throw new Error(result.message || "Failed to delete item");
       }
 
-      // Remove the item from the state using its unique list_id
-      setQuotes(prevQuotes => prevQuotes.filter(q => q.list_id !== `${quoteType}_${quoteId}`));
+      await fetchQuotes();
       
       setFlashMessage({ type: 'success', text: result.message });
 
@@ -196,7 +193,7 @@ function Quotes() {
                     <small>{quote.client_phone}</small>
                   </td>
                   <td data-label="Service">
-                    {quote.service} ({quote.property_type})
+                    {quote.service} {quote.property_type ? `(${quote.property_type})` : ''}
                   </td>
                    <td data-label="Frequency">{quote.frequency}</td>
                   <td data-label="Price">{formatPrice(quote.total_price)}</td>
@@ -210,7 +207,7 @@ function Quotes() {
                     <ActionsDropdown 
                       quote={quote} 
                       onSend={() => handleSendQuote(quote.id, quote.type)}
-                      onDelete={() => handleDeleteQuote(quote.id, quote.type)} 
+                      onDelete={() => handleDeleteQuote(quote.id, quote.type, quote.list_id)} 
                     />
                   </td>
                 </tr>

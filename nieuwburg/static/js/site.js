@@ -1,7 +1,6 @@
 // --- GLOBAL VARIABLES ---
-// --- GLOBAL VARIABLES ---
 let masterTimeline;
-
+let mapInitialized = false;
 const serviceDetails = {
   residential: {
     title: 'Residential Cleaning',
@@ -110,29 +109,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // 3. Connect Individual Service Buttons
-    const serviceItemButtons = document.querySelectorAll('.service-item-book-button');
-    const bookingModalToOpen = document.getElementById('booking-modal');
-
-    if (bookingModalToOpen && serviceItemButtons.length > 0) {
-        let dataLoaded = !document.getElementById('booking-category-list'); 
-
-        const openModalForServiceItems = (e) => {
-            e.preventDefault();
-            bookingModalToOpen.classList.add('visible');
-            if (!dataLoaded) {
-                initBookingModal(); 
-                dataLoaded = true;
-            } else {
-                renderStep1(); 
-            }
-        };
-
-        serviceItemButtons.forEach(btn => {
-            btn.addEventListener('click', openModalForServiceItems);
-        });
-    }
-
     // 4. Profile Dropdown Logic
     const profileDropdown = document.getElementById('profile-dropdown');
     if (profileDropdown) {
@@ -144,39 +120,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!profileDropdown.contains(e.target)) {
                 profileDropdown.classList.remove('open');
             }
-        });
-    }
-
-    // 5. Booking Modal Core Open/Close Triggers
-    const bookingModal = document.getElementById('booking-modal');
-    if (bookingModal) {
-        const openButtons = ['dashboard-quote-btn', 'quote-button', 'hero-book-btn', 'final-cta-btn'];
-        const closeButton = document.getElementById('close-booking-modal-button');
-        let dataLoaded = false;
-
-        const openBookingModal = (e) => {
-            e.preventDefault();
-            bookingModal.classList.add('visible');
-            if (!dataLoaded) {
-                initBookingModal(); 
-                dataLoaded = true;
-            } else {
-                renderStep1(); 
-            }
-        };
-        
-        const closeBookingModal = () => {
-            bookingModal.classList.remove('visible');
-        };
-
-        openButtons.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) btn.addEventListener('click', openBookingModal);
-        });
-
-        if (closeButton) closeButton.addEventListener('click', closeBookingModal);
-        bookingModal.addEventListener('click', (e) => {
-            if (e.target === bookingModal) closeBookingModal();
         });
     }
 
@@ -248,7 +191,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 9. Initialize Sub-Modals
     setupModal('contact-modal', ['contact-nav-link', 'hero-contact-btn', 'contact-footer-btn'], 'close-contact-modal-button', 'contact-form', handleContactFormSubmit);
     setupModal('join-team-modal', ['join-team-footer-btn', 'hero-join-team-btn'], 'close-join-team-modal-button', 'staff-application-form', handleStaffApplicationSubmit);
-    setupModal('quote-modal', ['hero-quote-btn'], 'close-quote-modal-button', 'quote-request-form', handleQuoteFormSubmit);
+    setupModal('quote-modal', ['hero-quote-btn', 'pricing-tier-1', 'pricing-tier-2', 'pricing-tier-3'], 'close-quote-modal-button', 'quote-request-form', handleQuoteFormSubmit);
 
     // 10. Service Details Spotlight Modal
     const serviceModal = document.getElementById('service-detail-modal');
@@ -438,9 +381,13 @@ document.addEventListener('DOMContentLoaded', function() {
     if (authModal) {
         const openBtns = document.querySelectorAll('#login-nav-btn, .open-auth-modal');
         const closeBtn = document.getElementById('close-auth-modal-button');
+        
+        // View Elements
         const formsView = document.getElementById('auth-forms-view');
         const forgotView = document.getElementById('auth-forgot-view');
         const successView = document.getElementById('auth-success-view');
+
+        // Tab Logic
         const tabLinks = document.querySelectorAll('.auth-tab-link');
         const forms = document.querySelectorAll('.auth-form-modal');
         
@@ -448,34 +395,250 @@ document.addEventListener('DOMContentLoaded', function() {
             tabLinks.forEach(t => t.classList.remove('active'));
             const activeTab = document.querySelector(`.auth-tab-link[data-target-form="${targetId}"]`);
             if(activeTab) activeTab.classList.add('active');
+
             forms.forEach(f => f.classList.remove('active'));
             const targetForm = document.getElementById(targetId);
             if(targetForm) targetForm.classList.add('active');
         }
 
         tabLinks.forEach(tab => {
-            tab.addEventListener('click', (e) => { e.preventDefault(); switchTab(tab.dataset.targetForm); });
+            tab.addEventListener('click', (e) => {
+                e.preventDefault();
+                switchTab(tab.dataset.targetForm);
+            });
         });
 
+        // Open/Close & View Switching Logic
         const showView = (viewId) => {
             if(formsView) formsView.style.display = 'none';
             if(forgotView) forgotView.style.display = 'none';
             if(successView) successView.style.display = 'none';
+            
             const target = document.getElementById(viewId);
             if(target) target.style.display = 'block';
         };
 
         const openModal = (e) => {
             if(e) e.preventDefault();
-            authModal.classList.add('modal-open');
-            showView('auth-forms-view');
-            switchTab('login-form-modal');
+            authModal.classList.add('modal-open'); 
+            showView('auth-forms-view'); 
+            switchTab('login-form-modal'); 
         };
-        const closeModal = () => authModal.classList.remove('modal-open');
+        
+        const closeModal = (e) => {
+            if(e) e.preventDefault();
+            authModal.classList.remove('modal-open'); 
+        };
 
         openBtns.forEach(btn => btn.addEventListener('click', openModal));
         if (closeBtn) closeBtn.addEventListener('click', closeModal);
-        authModal.addEventListener('click', (e) => { if (e.target === authModal) closeModal(); });
+        authModal.addEventListener('click', (e) => { 
+            if (e.target === authModal) closeModal(e); 
+        });
+
+        // --- FORGOT PASSWORD FLOW ---
+        const forgotLink = document.getElementById('forgot-password-link');
+        const backToLogin = document.getElementById('back-to-login-link');
+        const forgotForm = document.getElementById('forgot-password-form');
+        const successCloseBtn = document.getElementById('success-close-btn');
+
+        if(forgotLink) forgotLink.onclick = (e) => { e.preventDefault(); showView('auth-forgot-view'); };
+        if(backToLogin) backToLogin.onclick = (e) => { e.preventDefault(); showView('auth-forms-view'); };
+        if(successCloseBtn) successCloseBtn.onclick = closeModal;
+
+        if (forgotForm) {
+            forgotForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const btn = document.getElementById('forgot-btn');
+                const errDiv = document.getElementById('forgot-error-message');
+                const email = document.getElementById('forgot-email').value;
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+                btn.disabled = true;
+                btn.textContent = "Sending...";
+                errDiv.style.display = 'none';
+
+                try {
+                    const res = await fetch('/auth/request-password-reset', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({ email: email })
+                    });
+                    const data = await res.json();
+
+                    if (res.ok) {
+                        document.getElementById('success-title').textContent = "Check Your Email";
+                        document.getElementById('success-message').textContent = data.message;
+                        document.getElementById('resend-container').style.display = 'none';
+                        document.getElementById('success-close-btn').style.display = 'inline-block';
+                        showView('auth-success-view');
+                    } else {
+                        errDiv.textContent = data.message;
+                        errDiv.style.display = 'block';
+                    }
+                } catch (err) {
+                    errDiv.textContent = "System error. Please try again.";
+                    errDiv.style.display = 'block';
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = "Send Instructions";
+                }
+            });
+        }
+
+        // --- HELPER: Post Data (RESTORED) ---
+        async function postFormData(url, formData) {
+            const data = Object.fromEntries(formData.entries());
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': data.csrf_token || ''
+                },
+                body: JSON.stringify(data)
+            });
+            const contentType = response.headers.get("content-type");
+            if (contentType && contentType.includes("application/json")) {
+                return { ok: response.ok, json: await response.json() };
+            }
+            throw new Error("Server Error");
+        }
+
+        // --- LOGIN SUBMIT (RESTORED) ---
+        const loginForm = document.getElementById('login-form-modal');
+        if (loginForm) {
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const errDiv = document.getElementById('login-error-message');
+                const btn = loginForm.querySelector('button[type="submit"]');
+                errDiv.style.display = 'none';
+                btn.textContent = "Logging in...";
+                btn.disabled = true;
+
+                try {
+                    const { ok, json } = await postFormData(loginForm.action, new FormData(loginForm));
+                    if (ok) {
+                        window.location.href = json.redirect || '/admin/dashboard';
+                    } else {
+                        errDiv.innerHTML = json.message;
+                        errDiv.style.display = 'block';
+                    }
+                } catch (err) {
+                    errDiv.textContent = "System error.";
+                    errDiv.style.display = 'block';
+                } finally {
+                    btn.textContent = "Log In";
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        // --- REGISTER SUBMIT (RESTORED) ---
+        const registerForm = document.getElementById('register-form-modal');
+        if (registerForm) {
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const errDiv = document.getElementById('register-error-message');
+                const btn = document.getElementById('register-btn');
+                const pass = document.getElementById('register-password').value;
+                const confirm = document.getElementById('register-password-confirm').value;
+
+                if (pass !== confirm) {
+                    document.getElementById('match-text').style.display = 'block';
+                    return;
+                }
+                if (document.querySelectorAll('.password-requirements li.invalid').length > 0) {
+                    errDiv.textContent = "Please meet all password requirements.";
+                    errDiv.style.display = 'block';
+                    return;
+                }
+
+                errDiv.style.display = 'none';
+                btn.textContent = "Creating Account...";
+                btn.disabled = true;
+
+                try {
+                    const formData = new FormData(registerForm);
+                    const { ok, json } = await postFormData(registerForm.action, formData);
+                    
+                    if (ok) {
+                        document.getElementById('success-title').textContent = "Verify Your Email";
+                        document.getElementById('success-message').textContent = "Please check your email to verify your account.";
+                        
+                        const resendContainer = document.getElementById('resend-container');
+                        resendContainer.style.display = 'block';
+                        document.getElementById('success-email-display').textContent = formData.get('email');
+                        document.getElementById('success-close-btn').style.display = 'none';
+
+                        showView('auth-success-view');
+                    } else {
+                        errDiv.textContent = json.message;
+                        errDiv.style.display = 'block';
+                        btn.textContent = "Create Account";
+                        btn.disabled = false;
+                    }
+                } catch (err) {
+                    errDiv.textContent = "System error.";
+                    errDiv.style.display = 'block';
+                    btn.textContent = "Create Account";
+                    btn.disabled = false;
+                }
+            });
+        }
+
+        // --- PASSWORD VALIDATION LOGIC (RESTORED) ---
+        const regPass = document.getElementById('register-password');
+        const regConfirm = document.getElementById('register-password-confirm');
+        
+        if (regPass) {
+            regPass.addEventListener('input', function() {
+                const val = this.value;
+                const reqs = {
+                    length: val.length >= 8,
+                    upper: /[A-Z]/.test(val),
+                    lower: /[a-z]/.test(val),
+                    number: /[0-9]/.test(val),
+                    special: /[^a-zA-Z0-9]/.test(val)
+                };
+                let allValid = true;
+                for (const [key, isValid] of Object.entries(reqs)) {
+                    const el = document.getElementById(`req-${key}`);
+                    if (el) {
+                        if (isValid) { el.classList.add('valid'); el.classList.remove('invalid'); }
+                        else { el.classList.remove('valid'); el.classList.add('invalid'); allValid = false; }
+                    }
+                }
+                if (allValid) this.classList.add('valid-input'); else this.classList.remove('valid-input');
+                if (regConfirm && regConfirm.value) checkMatch();
+            });
+        }
+
+        if (regConfirm) {
+            regConfirm.addEventListener('input', checkMatch);
+        }
+
+        function checkMatch() {
+            const matchText = document.getElementById('match-text');
+            if (regPass.value && regPass.value === regConfirm.value) {
+                matchText.style.display = 'none';
+                regConfirm.classList.add('valid-input'); 
+                regConfirm.classList.remove('invalid-input');
+            } else {
+                if (regConfirm.value.length > 0) {
+                    matchText.style.display = 'block';
+                    regConfirm.classList.remove('valid-input');
+                    regConfirm.classList.add('invalid-input'); 
+                } else {
+                    matchText.style.display = 'none';
+                    regConfirm.classList.remove('valid-input');
+                    regConfirm.classList.remove('invalid-input');
+                }
+            }
+        }
     }
 
     // 17. Form Password Visibility Option Boxes
@@ -496,179 +659,500 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // ==========================================
+// FORM HANDLERS & HELPERS (RESTORED)
+// ==========================================
+
+async function handleContactFormSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const modal = document.getElementById('contact-modal');
+  const modalContent = form.parentElement;
+  
+  const data = { 
+    name: form.name.value, 
+    email: form.email.value, 
+    phone: form.phone.value, 
+    area: form.area.value,
+    message: form.message.value 
+  };
+
+  try {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+    
+    const res = await fetch('/api/contact', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
+      body: JSON.stringify(data)
+    });
+
+    if (!res.ok) {
+        const errorJson = await res.json();
+        throw new Error(errorJson.message || 'A server error occurred.');
+    }
+    
+    const json = await res.json();
+    
+    if (modalContent) {
+        modalContent.innerHTML = `
+            <button id="close-contact-modal-button" class="modal-close" aria-label="Close contact form">&times;</button>
+            <p style="text-align: center; font-size: 1.1rem; color: var(--accent); padding: 40px 0;">${json.message}</p>
+        `;
+        const newCloseButton = modalContent.querySelector('#close-contact-modal-button');
+        if (newCloseButton && modal) {
+            newCloseButton.addEventListener('click', () => modal.classList.remove('visible'));
+        }
+    }
+  } catch (error) {
+     console.error("Contact form submission error:", error);
+     if (modalContent) {
+        modalContent.innerHTML = `
+            <button id="close-contact-modal-button" class="modal-close" aria-label="Close contact form">&times;</button>
+            <p style="text-align: center; font-size: 1.1rem; color: #c82333; padding: 40px 0;">
+                <strong>Error:</strong> Could not send message. Please try again later.
+            </p>
+        `;
+        const newCloseButton = modalContent.querySelector('#close-contact-modal-button');
+        if (newCloseButton && modal) {
+            newCloseButton.addEventListener('click', () => modal.classList.remove('visible'));
+        }
+     }
+  }
+}
+
+async function handleQuoteFormSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const submitBtn = document.getElementById('quote-submit-btn');
+    const alertPlaceholder = document.getElementById('quote-alert-placeholder');
+    const quoteModal = document.getElementById('quote-modal'); 
+
+    alertPlaceholder.textContent = ''; 
+    alertPlaceholder.className = 'flash'; 
+    alertPlaceholder.style.display = 'none'; 
+
+    submitBtn.disabled = true;
+    const originalBtnText = submitBtn.textContent;
+    submitBtn.textContent = 'Submitting...';
+
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    try {
+        // Grab the CSRF token from the page's meta tag
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        const response = await fetch('/api/request-quote', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken // Add the security token to the headers!
+            }, 
+            body: JSON.stringify(data)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            alertPlaceholder.textContent = result.message;
+            alertPlaceholder.className = 'flash success';
+            alertPlaceholder.style.display = 'block'; 
+            form.reset(); 
+
+            setTimeout(() => {
+                if (quoteModal) quoteModal.classList.remove('visible');
+                submitBtn.disabled = false; 
+                submitBtn.textContent = originalBtnText;
+            }, 3000);
+
+        } else {
+            alertPlaceholder.textContent = result.message || 'An error occurred submitting your request.';
+            alertPlaceholder.className = 'flash error';
+            alertPlaceholder.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.textContent = originalBtnText;
+        }
+    } catch (error) {
+        console.error("Quote Submission Error:", error);
+        alertPlaceholder.textContent = 'A network error occurred. Please check connection and try again.';
+        alertPlaceholder.className = 'flash error';
+        alertPlaceholder.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
+    } 
+}
+
+async function initializePaystack(bookingData) {
+    try {
+        // 1. Guardrail: Paystack will instantly fail if the cart is R0.00
+        if (!bookingData.totalPrice || bookingData.totalPrice <= 0) {
+            alert("Your cart total is R0.00. Please select a service to proceed to payment.");
+            const payBtn = document.getElementById('wizard-pay-btn');
+            if(payBtn) {
+                payBtn.innerText = 'Pay & Book';
+                payBtn.disabled = false;
+            }
+            return;
+        }
+
+        // 2. Trigger Paystack directly on the frontend (Bypass the missing backend route)
+        const handler = PaystackPop.setup({
+            key: 'pk_test_8aeed7ae6e10339f657b2f986288333b5db779a3', // Your test key
+            email: bookingData.email,
+            amount: parseInt(bookingData.totalPrice * 100), // Paystack requires cents
+            currency: 'ZAR',
+            ref: `booking_${Math.floor((Math.random() * 1000000000) + 1)}`,
+            metadata: {
+                type: "public_booking",
+                payer_name: bookingData.full_name
+            },
+            callback: function(response) {
+                // Redirect to the success page upon successful payment
+                window.location.href = `/payment-callback?reference=${response.reference}`;
+            },
+            onClose: function() {
+                alert('Payment window closed. Your booking was saved, but payment is pending.');
+                const payBtn = document.getElementById('wizard-pay-btn');
+                if(payBtn) {
+                    payBtn.innerText = 'Pay & Book';
+                    payBtn.disabled = false;
+                }
+            }
+        });
+        
+        handler.openIframe();
+
+    } catch (error) {
+        console.error('Paystack initialization error:', error);
+        alert('An error occurred setting up payment.');
+    }
+}
+
+async function handleStaffApplicationSubmit(e) {
+    e.preventDefault();
+    const form = e.target;
+    const modal = document.getElementById('join-team-modal');
+    const modalContent = form.parentElement;
+    const formData = new FormData(form);
+
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        const res = await fetch('/api/staff_apply', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData 
+        });
+        const json = await res.json();
+
+        if (modalContent) {
+            modalContent.innerHTML = `
+                <button id="close-join-team-modal-button" class="modal-close" aria-label="Close form">&times;</button>
+                <p style="text-align: center; font-size: 1.1rem; color: var(--accent); padding: 40px 0;">${json.message}</p>
+            `;
+            const newCloseButton = modalContent.querySelector('#close-join-team-modal-button');
+            if (newCloseButton && modal) {
+                newCloseButton.addEventListener('click', () => modal.classList.remove('visible'));
+            }
+        }
+    } catch (error) {
+        console.error("Staff application submission error:", error);
+        alert('An unexpected error occurred. Please try again.');
+    }
+}
+
+async function loadServiceCategories(selectElementId) {
+    const selectEl = document.getElementById(selectElementId);
+    if (!selectEl) return;
+    if (selectEl.options.length > 1) return;
+
+    try {
+        const response = await fetch('/api/services'); 
+        if (!response.ok) throw new Error('Failed to fetch services');
+        const allServicesData = await response.json();
+
+        if (allServicesData.length > 0) {
+            allServicesData.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category.id;
+                option.textContent = category.name;
+                selectEl.appendChild(option);
+            });
+        } else {
+            selectEl.innerHTML = '<option value="" disabled>No services available</option>';
+        }
+    } catch (error) {
+        console.error('Error loading service categories:', error);
+        selectEl.innerHTML = '<option value="" disabled>Error loading services</option>';
+    }
+}
+
+function handlePropertyTypeChange(e) {
+  const value = e.target.value;
+  const residentialDetails = document.getElementById('residential-details');
+  const commercialDetails = document.getElementById('commercial-details');
+  if (!residentialDetails || !commercialDetails) return;
+
+  if (value === 'Residential') {
+    residentialDetails.classList.remove('hidden');
+    commercialDetails.classList.add('hidden');
+  } else if (value === 'Commercial' || value === 'Industrial' || value === 'Body Corporate') {
+    residentialDetails.classList.add('hidden');
+    commercialDetails.classList.remove('hidden');
+  } else {
+    residentialDetails.classList.add('hidden');
+    commercialDetails.classList.add('hidden');
+  }
+}
+
+function handleFrequencyChange(e) {
+  const value = e.target.value;
+  const recurringOptions = document.getElementById('recurring-options');
+  if (!recurringOptions) return;
+
+  if (value === 'Recurring') {
+    recurringOptions.classList.remove('hidden');
+  } else {
+    recurringOptions.classList.add('hidden');
+  }
+}
+
+// ==========================================
 // PUBLIC BOOKING WIZARD (SINGLE TENANT)
 // ==========================================
 
-let bookingState = {
-    service_name: '',
-    estimated_total: 0,
-    address: '',
-    date: '',
-    time: '',
-    full_name: '',
-    email: '',
-    phone_number: ''
+// ==========================================
+// VIBRANT BOOKING WIZARD ENGINE (SWEEPSOUTH STYLE)
+// ==========================================
+let wizardState = {
+    categoryId: null,
+    categoryName: '',
+    items: {}, // Stores quantity of selected items { itemId: {qty, price} }
+    total: 0,
+    servicesData: [] // Stores the API response
 };
-let categoriesCache = [];
-let mvpDataLoaded = false;
+let wizardDataLoaded = false;
 
-async function initWizard() {
-    const categoryList = document.getElementById('booking-category-list');
-    if (!categoryList) return;
-    
-    categoryList.innerHTML = '<p>Loading services...</p>';
+async function initBookingWizard() {
     try {
         const response = await fetch('/api/public/services');
-        categoriesCache = await response.json();
-        renderCategories();
-    } catch (error) {
-        categoryList.innerHTML = '<p>Error loading services. Please try again later.</p>';
-        console.error(error);
+        wizardState.servicesData = await response.json();
+        
+        const catContainer = document.getElementById('wizard-categories');
+        if(catContainer) catContainer.innerHTML = '';
+
+        wizardState.servicesData.forEach(cat => {
+            const card = document.createElement('div');
+            card.className = 'wizard-cat-card';
+            card.innerHTML = `<h3 style="color: #002244; margin: 0;">${cat.name}</h3>`;
+            card.onclick = () => selectCategory(cat.id, cat.name);
+            if(catContainer) catContainer.appendChild(card);
+        });
+    } catch (err) {
+        console.error("Failed to load services", err);
     }
 }
 
-function renderCategories() {
-    const categoryList = document.getElementById('booking-category-list');
-    categoryList.innerHTML = '';
-    categoriesCache.forEach(category => {
-        const btn = document.createElement('button');
-        btn.className = 'cta-outline';
-        btn.style.width = '100%';
-        btn.style.marginBottom = '10px';
-        btn.innerText = category.name;
-        btn.onclick = () => renderServices(category);
-        categoryList.appendChild(btn);
-    });
+function goToStep(stepNumber) {
+    document.querySelectorAll('.wizard-step-container').forEach(el => el.classList.remove('active'));
+    const targetStep = document.getElementById(`booking-step-${stepNumber}`);
+    if(targetStep) targetStep.classList.add('active');
+    
+    if(stepNumber === 3) buildScopeUI();
 }
 
-function renderServices(category) {
-    const categoryList = document.getElementById('booking-category-list');
-    categoryList.innerHTML = `<h4 style="margin-bottom: 15px;">${category.name}</h4>`;
+function selectCategory(catId, catName) {
+    wizardState.categoryId = catId;
+    wizardState.categoryName = catName;
+    wizardState.items = {}; // Reset cart on new category
+    calculateTotal();
+    goToStep(2);
+}
+
+// A simple icon mapper to give extras cute icons based on their name
+function getIconForService(name) {
+    const n = name.toLowerCase();
+    if (n.includes('oven')) return 'fa-fire-burner';
+    if (n.includes('fridge')) return 'fa-snowflake';
+    if (n.includes('window')) return 'fa-border-all';
+    if (n.includes('wall')) return 'fa-layer-group';
+    if (n.includes('iron') || n.includes('laundry')) return 'fa-shirt';
+    if (n.includes('cabinet') || n.includes('cupboard')) return 'fa-box-archive';
+    return 'fa-plus-circle'; // fallback
+}
+
+function buildScopeUI() {
+    const scopeContainer = document.getElementById('wizard-scope-items');
+    const extrasContainer = document.getElementById('wizard-extras-items');
+    if(!scopeContainer || !extrasContainer) return;
     
+    scopeContainer.innerHTML = '';
+    extrasContainer.innerHTML = '';
+    
+    const category = wizardState.servicesData.find(c => c.id === wizardState.categoryId);
+    if(!category) return;
+
     category.items.forEach(item => {
-        const btn = document.createElement('button');
-        btn.className = 'cta';
-        btn.style.width = '100%';
-        btn.style.marginBottom = '10px';
-        btn.innerText = `${item.name} - R${item.default_rate}`;
-        btn.onclick = () => {
-            bookingState.service_name = item.name;
-            bookingState.estimated_total = item.default_rate;
-            goToStep(2);
-        };
-        categoryList.appendChild(btn);
+        // If it's variable (Hourly/Sqm/Rooms), it goes into the SCOPE section
+        if (item.pricing_type !== 'fixed') {
+            wizardState.items[item.id] = { qty: 0, price: item.default_rate };
+            const row = document.createElement('div');
+            row.className = 'wizard-item-row';
+            row.style.background = 'transparent';
+            row.style.border = 'none';
+            row.style.padding = '5px 0';
+            row.innerHTML = `
+                <div>
+                    <strong style="color: #002244; font-size: 1.1rem;">${item.name}</strong>
+                </div>
+                <div class="wizard-counter">
+                    <button type="button" onclick="updateItem(${item.id}, -1, ${item.default_rate}, true)">-</button>
+                    <span id="qty-${item.id}" style="font-size: 1.2rem; font-weight: bold; width: 30px; text-align: center; display: inline-block;">0</span>
+                    <button type="button" onclick="updateItem(${item.id}, 1, ${item.default_rate}, true)">+</button>
+                </div>
+            `;
+            scopeContainer.appendChild(row);
+        } 
+        // If it's a fixed price, it goes into the EXTRAS grid
+        else {
+            wizardState.items[item.id] = { qty: 0, price: item.default_rate };
+            const tile = document.createElement('div');
+            tile.className = 'wizard-extra-tile';
+            tile.id = `extra-tile-${item.id}`;
+            const iconClass = getIconForService(item.name);
+            
+            tile.innerHTML = `
+                <i class="fa-solid ${iconClass}"></i>
+                <span>${item.name}</span>
+            `;
+            
+            tile.onclick = () => {
+                tile.classList.toggle('selected');
+                const isSelected = tile.classList.contains('selected');
+                updateItem(item.id, isSelected ? 1 : 0, item.default_rate, false);
+            };
+            extrasContainer.appendChild(tile);
+        }
     });
-
-    const backBtn = document.createElement('button');
-    backBtn.className = 'cta-outline';
-    backBtn.style.marginTop = '10px';
-    backBtn.innerText = '← Back to Categories';
-    backBtn.onclick = () => renderCategories();
-    categoryList.appendChild(backBtn);
 }
 
-function goToStep(stepIndex) {
-    const steps = [
-        document.getElementById('booking-step-1'),
-        document.getElementById('booking-step-2-address'),
-        document.getElementById('booking-step-3-details'),
-        document.getElementById('booking-step-4-confirm')
-    ];
-    
-    steps.forEach(step => { if(step) step.classList.add('hidden'); });
-    if(steps[stepIndex - 1]) steps[stepIndex - 1].classList.remove('hidden');
-
-    if (stepIndex === 3) {
-        document.getElementById('booking-price-total').innerText = `R${bookingState.estimated_total}`;
-        document.getElementById('booking-summary-container').classList.remove('hidden');
+function updateItem(id, amount, price, isCounter = false) {
+    if (isCounter) {
+        let currentQty = wizardState.items[id]?.qty || 0;
+        let newQty = Math.max(0, currentQty + amount); // Don't drop below 0
+        wizardState.items[id] = { qty: newQty, price: price };
+        const qtySpan = document.getElementById(`qty-${id}`);
+        if(qtySpan) qtySpan.innerText = newQty;
+    } else {
+        // Checkbox logic
+        wizardState.items[id] = { qty: amount, price: price };
     }
-    if (stepIndex === 4) {
-        document.getElementById('address-display-text').innerText = bookingState.address || 'Address not provided';
-        const timeSelect = document.getElementById('booking-time');
-        timeSelect.innerHTML = `
-            <option value="08:00">08:00 AM</option>
-            <option value="12:00">12:00 PM</option>
-            <option value="15:00">03:00 PM</option>
-        `;
-        timeSelect.disabled = false;
-    }
+    calculateTotal();
 }
 
+function calculateTotal() {
+    wizardState.total = Object.values(wizardState.items).reduce((sum, item) => sum + (item.qty * item.price), 0);
+    const priceLabel = document.getElementById('wizard-live-price');
+    if(priceLabel) priceLabel.innerText = `R ${wizardState.total.toFixed(2)}`;
+}
+
+// Modal Trigger & Submit Logic
 document.addEventListener('DOMContentLoaded', () => {
-    document.querySelectorAll('.booking-back-btn').forEach(btn => {
-        btn.onclick = (e) => {
-            const targetStep = parseInt(e.target.getAttribute('data-target-step'));
-            goToStep(targetStep);
-        };
+    const bookingModal = document.getElementById('booking-modal');
+    const openButtons = ['hero-book-btn', 'quote-button', 'final-cta-btn'];
+    
+    openButtons.forEach(id => {
+        const btn = document.getElementById(id);
+        if(btn) {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if(bookingModal) bookingModal.classList.add('visible');
+                if (!wizardDataLoaded) {
+                    initBookingWizard();
+                    wizardDataLoaded = true;
+                }
+                goToStep(1); // Always reset to step 1 on open
+            });
+        }
     });
 
-    const addressNext = document.getElementById('booking-address-next-btn');
-    if(addressNext) {
-        addressNext.onclick = () => {
-            bookingState.address = document.getElementById('street-address').value;
-            goToStep(3);
-        };
-    }
+    const closeBookingBtn = document.getElementById('close-booking-modal-button');
+    const closeFunc = (e) => {
+        if(e) e.preventDefault();
+        if(bookingModal) bookingModal.classList.remove('visible');
+    };
+    
+    if (closeBookingBtn) closeBookingBtn.addEventListener('click', closeFunc);
+    if (bookingModal) bookingModal.addEventListener('click', (e) => {
+        if (e.target === bookingModal) closeFunc(e);
+    });
 
-    const detailsNext = document.getElementById('booking-next-step-btn');
-    if(detailsNext) detailsNext.onclick = () => goToStep(4);
+    const payBtn = document.getElementById('wizard-pay-btn');
+    if(payBtn) {
+        payBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            const date = document.getElementById('wizard-date').value;
+            const email = document.getElementById('wizard-email').value;
+            const name = document.getElementById('wizard-name').value;
+            const address = document.getElementById('street-address').value;
+            if(!date || !email || !name || !address) {
+                alert("Please fill out your address, name, email, and schedule date.");
+                return;
+            }
 
-    const confirmBtn = document.getElementById('booking-confirm-btn');
-    if(confirmBtn) {
-        confirmBtn.onclick = async (e) => {
-            const btn = e.target;
-            btn.innerText = 'Submitting...';
-            btn.disabled = true;
+            payBtn.innerText = 'Processing...';
+            payBtn.disabled = true;
 
-            bookingState.date = document.getElementById('booking-date').value;
-            bookingState.time = document.getElementById('booking-time').value;
-            bookingState.full_name = document.getElementById('customer-name').value;
-            bookingState.email = document.getElementById('customer-email').value;
-            bookingState.phone_number = document.getElementById('customer-phone').value;
+            const payload = {
+                service_name: wizardState.categoryName,
+                estimated_total: wizardState.total,
+                address: address,
+                date: date,
+                time: document.getElementById('wizard-time').value,
+                email: email,
+                full_name: name,
+                phone_number: ''
+            };
 
             try {
+                // 1. Log the lead in the database first (so you don't lose them if they abandon cart)
                 const response = await fetch('/api/public/book', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bookingState)
+                    body: JSON.stringify(payload)
                 });
-
-                if (response.ok) {
-                    alert("Booking Request Submitted Successfully! We will contact you shortly.");
-                    document.getElementById('close-booking-modal-button').click(); 
-                    goToStep(1); 
-                } else {
-                    alert("Failed to submit booking. Please check your details.");
+                
+                if (!response.ok) {
+                    throw new Error("Failed to save booking details.");
                 }
-            } catch (error) {
-                console.error(error);
-                alert("An error occurred.");
-            } finally {
-                btn.innerText = 'Confirm & Proceed to Payment';
-                btn.disabled = false;
-            }
-        };
-    }
 
-    const bookingModal = document.getElementById('booking-modal');
-    if (bookingModal) {
-        const openButtons = ['dashboard-quote-btn', 'quote-button', 'hero-book-btn', 'final-cta-btn'];
-        const openFunc = (e) => {
-            e.preventDefault();
-            bookingModal.classList.add('visible');
-            if (!mvpDataLoaded) {
-                initWizard();
-                mvpDataLoaded = true;
-            } else {
-                goToStep(1);
-            }
-        };
-        openButtons.forEach(id => {
-            const btn = document.getElementById(id);
-            if (btn) {
-                const newBtn = btn.cloneNode(true);
-                btn.parentNode.replaceChild(newBtn, btn);
-                newBtn.addEventListener('click', openFunc);
+                // 2. TRIGGER PAYSTACK SECURE CHECKOUT
+                payBtn.innerText = 'Opening Secure Checkout...';
+                
+                const paystackData = {
+                    email: payload.email,
+                    totalPrice: payload.estimated_total,
+                    full_name: payload.full_name
+                };
+                
+                // This calls the existing Paystack function in your site.js
+                await initializePaystack(paystackData);
+                
+                // Close the wizard modal so the Paystack iframe takes center stage
+                const closeBookingBtn = document.getElementById('close-booking-modal-button');
+                if(closeBookingBtn) closeBookingBtn.click(); 
+
+            } catch(err) {
+                console.error(err);
+                alert("An error occurred connecting to the server.");
+                payBtn.innerText = 'Pay & Book';
+                payBtn.disabled = false;
+            } finally {
+                // Only reset the button if Paystack didn't redirect them
+                payBtn.innerText = 'Pay & Book';
+                payBtn.disabled = false;
             }
         });
     }

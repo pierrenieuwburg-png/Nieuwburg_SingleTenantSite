@@ -20,7 +20,7 @@ function ActionsDropdown({ quote, onDelete }) {
 
   const handleDeleteClick = () => {
     // The parent (Quotes.jsx) already knows how to pass the type
-    onDelete(quote.id); 
+    onDelete(); 
     setIsOpen(false);
   };
 

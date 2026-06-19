@@ -836,7 +836,8 @@ def create_service_category():
         new_cat = ServiceCategory(
             name=name,
             description=data.get('description', ''),
-            prompt_question=data.get('prompt_question', 'What service do you require?'),
+            calculation_method=data.get('calculation_method', 'property_size'), # NEW
+            prompt_question=data.get('prompt_question', ''), # NEW
             tenant_id=current_user.tenant_id
         )
         db.session.add(new_cat)
@@ -905,6 +906,8 @@ def get_service_categories():
                 'id': category.id,
                 'name': category.name,
                 'description': category.description,
+                'calculation_method': category.calculation_method, # NEW
+                'prompt_question': category.prompt_question, # NEW
                 'items': items_data
             })
             
@@ -964,14 +967,14 @@ def create_service_item():
 
         new_item = ServiceItem(
             name=data['name'],
-            description=data.get('description', ''), # Capture the long description
+            description=data.get('description', ''), 
             category_id=data['category_id'],
             estimated_time_mins=int(data.get('estimated_time_mins', 0)),
             pricing_type=data.get('pricing_type', 'fixed'),
             default_rate=float(data.get('default_rate', 0.0)),
             is_material=bool(data.get('is_material', False)),
             is_variable_price=bool(data.get('is_variable_price', False)),
-            is_extra=bool(data.get('is_extra', False)), # <-- ADDED: Captures the Extra flag for new items
+            is_extra=bool(data.get('is_extra', False)), # NEW
             tenant_id=current_user.tenant_id
         )
         
@@ -1012,7 +1015,7 @@ def update_service_item(item_id):
         service_item.default_rate = float(data.get('default_rate', service_item.default_rate))
         service_item.is_material = bool(data.get('is_material', service_item.is_material))
         service_item.is_variable_price = bool(data.get('is_variable_price', service_item.is_variable_price))
-        service_item.is_extra = bool(data.get('is_extra', service_item.is_extra)) # <-- ADDED: Updates the Extra flag on edit
+        service_item.is_extra = bool(data.get('is_extra', service_item.is_extra))
 
         if 'category_id' in data and data['category_id'] != service_item.category_id:
             cat = ServiceCategory.query.filter_by(id=data['category_id'], tenant_id=current_user.tenant_id).first()
@@ -2770,14 +2773,15 @@ def public_get_services():
                 'pricing_type': item.pricing_type,
                 'default_rate': item.default_rate,
                 'estimated_time_mins': item.estimated_time_mins,
-                'is_extra': item.is_extra
+                'is_extra': item.is_extra # NEW
             } for item in category.items]
             
             categories_data.append({
                 'id': category.id,
                 'name': category.name,
                 'description': category.description,
-                'prompt_question': category.prompt_question,
+                'calculation_method': category.calculation_method, # NEW (Tells JS which Flow to use)
+                'prompt_question': category.prompt_question, # NEW (Tells JS what to ask)
                 'items': items_data
             })
         return jsonify(categories_data), 200

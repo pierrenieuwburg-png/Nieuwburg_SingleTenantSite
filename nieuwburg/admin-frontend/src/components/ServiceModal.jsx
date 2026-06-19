@@ -18,7 +18,7 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
         pricing_type: "fixed",
         is_material: false,
         is_variable_price: false,
-        is_extra: false, // <-- TRACKING EXTRA STATUS
+        is_extra: false, 
         linked_clause_ids: []
     });
 
@@ -39,7 +39,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
 
     useEffect(() => {
         if (!isOpen) return;
-
         setIsSaving(false);
 
         if (serviceToEdit) {
@@ -52,7 +51,7 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                 pricing_type: serviceToEdit.pricing_type || "fixed",
                 is_material: serviceToEdit.is_material || false,
                 is_variable_price: serviceToEdit.is_variable_price || false,
-                is_extra: serviceToEdit.is_extra || false, // <-- LOAD EXISTING FLAG
+                is_extra: serviceToEdit.is_extra || false,
                 linked_clause_ids: serviceToEdit.linked_clause_ids || []
             });
         } else {
@@ -65,7 +64,7 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                 pricing_type: "fixed", 
                 is_material: false, 
                 is_variable_price: false,
-                is_extra: false, // <-- RESET TO FALSE
+                is_extra: false,
                 linked_clause_ids: []
             });
         }
@@ -216,7 +215,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                                     <input type="checkbox" name="is_variable_price" checked={formData.is_variable_price} onChange={handleChange} />
                                     <span style={{ marginLeft: '8px' }}>Show as "From R..." (Variable Price)</span>
                                 </label>
-                                {/* THE EXTRA FLAG CHECKBOX */}
                                 <label style={{display: 'flex', alignItems: 'center', fontSize: '0.9rem', color: '#be185d', cursor: 'pointer'}}>
                                     <input type="checkbox" name="is_extra" checked={formData.is_extra} onChange={handleChange} />
                                     <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>Treat as an Additional Extra / Add-on</span>

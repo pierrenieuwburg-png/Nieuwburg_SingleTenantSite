@@ -982,6 +982,32 @@ function getIconForService(name) {
     return 'fa-plus-circle'; // fallback
 }
 
+// --- TOOLTIP CSS INJECTION ---
+// We inject this once so you don't have to hunt down your style.css file
+if (!document.getElementById('blitz-tooltip-styles')) {
+    const style = document.createElement('style');
+    style.id = 'blitz-tooltip-styles';
+    style.innerHTML = `
+      .blitz-tooltip { position: relative; display: inline-flex; align-items: center; margin-left: 10px; z-index: 50; }
+      .blitz-tooltip .tooltip-icon { color: #9ca3af; font-size: 1.1rem; transition: color 0.2s; cursor: help; }
+      .blitz-tooltip:hover .tooltip-icon { color: #006ac6; }
+      .blitz-tooltip .tooltip-text {
+        visibility: hidden; width: 240px; background-color: #1f2937; color: #fff;
+        text-align: center; border-radius: 8px; padding: 10px; position: absolute;
+        z-index: 100; bottom: 150%; left: 50%; transform: translateX(-50%); opacity: 0;
+        transition: opacity 0.2s; font-size: 0.85rem; font-weight: normal; line-height: 1.4;
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); pointer-events: none;
+      }
+      .blitz-tooltip .tooltip-text::after {
+        content: ""; position: absolute; top: 100%; left: 50%;
+        margin-left: -6px; border-width: 6px; border-style: solid;
+        border-color: #1f2937 transparent transparent transparent;
+      }
+      .blitz-tooltip:hover .tooltip-text, .blitz-tooltip:active .tooltip-text { visibility: visible; opacity: 1; }
+    `;
+    document.head.appendChild(style);
+}
+
 function buildScopeUI() {
     const scopeContainer = document.getElementById('wizard-scope-items');
     const extrasContainer = document.getElementById('wizard-extras-items');
@@ -1001,12 +1027,22 @@ function buildScopeUI() {
     questionHeader.innerText = category.prompt_question || 'Please select your base service:';
     scopeContainer.appendChild(questionHeader);
 
-    // --- 2. SEPARATE ITEMS ---
     const primaryItems = category.items.filter(i => !i.is_extra);
     const extraItems = category.items.filter(i => i.is_extra);
-
-    // Check if the user has already selected a primary item (so we know if we should unlock extras)
     const hasPrimarySelected = primaryItems.some(item => wizardState.items[item.id]);
+
+    // --- HELPER: GENERATE TOOLTIP HTML ---
+    const generateTooltip = (description) => {
+        if (!description || description.trim() === '') return '';
+        const safeDesc = description.replace(/\n/g, '<br>');
+        // event.preventDefault() stops the radio/checkbox from triggering if they just click the icon on mobile
+        return `
+            <div class="blitz-tooltip" onclick="event.preventDefault();">
+                <i class="fa-solid fa-circle-info tooltip-icon"></i>
+                <span class="tooltip-text">${safeDesc}</span>
+            </div>
+        `;
+    };
 
     // --- 3. RENDER PRIMARY SCOPE ---
     primaryItems.forEach(item => {
@@ -1021,10 +1057,7 @@ function buildScopeUI() {
         row.style.cursor = 'pointer';
         row.style.transition = 'all 0.2s ease-in-out';
         
-        // Check if this item is currently selected in the wizardState
         const isSelected = wizardState.items[item.id] ? 'checked' : '';
-
-        // Apply active styling if already selected
         if (isSelected) {
             row.style.borderColor = '#006ac6';
             row.style.backgroundColor = '#f0f9ff';
@@ -1034,13 +1067,12 @@ function buildScopeUI() {
             <input type="radio" name="primary_scope" value="${item.id}" ${isSelected} 
                    onchange="handlePrimarySelection(${item.id}, ${item.default_rate}, '${category.id}')" 
                    style="margin-right: 15px; transform: scale(1.2);">
-            <div style="flex-grow: 1;">
-                <strong style="display: block; color: #002244; font-size: 1.1rem;">${item.name}</strong>
-                <span style="font-size: 0.85rem; color: #6b7280;">${item.description || ''}</span>
+            <div style="flex-grow: 1; display: flex; align-items: center;">
+                <strong style="color: #002244; font-size: 1.1rem; margin: 0;">${item.name}</strong>
+                ${generateTooltip(item.description)}
             </div>
         `;
         
-        // Active state effect on click
         row.onchange = (e) => {
             document.querySelectorAll('input[name="primary_scope"]').forEach(r => {
                 r.parentElement.style.borderColor = '#d1d5db';
@@ -1057,7 +1089,6 @@ function buildScopeUI() {
     if (extraItems.length === 0) {
         extrasContainer.innerHTML = '<p style="color: #9ca3af; width: 100%; text-align: center;">No extras available for this service.</p>';
     } else {
-        
         const extrasHeader = document.createElement('h4');
         extrasHeader.style.width = '100%';
         extrasHeader.style.marginBottom = '15px';
@@ -1066,10 +1097,10 @@ function buildScopeUI() {
         extrasHeader.innerText = 'Do you need any extras?';
         extrasContainer.appendChild(extrasHeader);
 
-        // *** THE FIX: LOCK EXTRAS IF NO PRIMARY IS SELECTED ***
-        if (!hasPrimarySelected) {
+        // LOCK EXTRAS IF NO PRIMARY IS SELECTED
+        if (!hasPrimarySelected && primaryItems.length > 0) {
             extrasContainer.style.opacity = '0.4';
-            extrasContainer.style.pointerEvents = 'none'; // Prevents all clicks
+            extrasContainer.style.pointerEvents = 'none';
             extrasContainer.title = "Please select a primary service first.";
         } else {
             extrasContainer.style.opacity = '1';
@@ -1091,8 +1122,9 @@ function buildScopeUI() {
                 row.style.borderBottom = '1px solid #f3f4f6';
                 
                 row.innerHTML = `
-                    <div>
-                        <strong style="color: #374151;">${item.name}</strong>
+                    <div style="display: flex; align-items: center;">
+                        <strong style="color: #374151; margin: 0;">${item.name}</strong>
+                        ${generateTooltip(item.description)}
                     </div>
                     <div class="wizard-counter">
                         <button type="button" onclick="updateItem(${item.id}, -1, ${item.default_rate}, true)">-</button>
@@ -1114,8 +1146,9 @@ function buildScopeUI() {
                 
                 row.innerHTML = `
                     <input type="checkbox" ${isSelected} onchange="updateItem(${item.id}, this.checked ? 1 : 0, ${item.default_rate}, false)" style="margin-right: 15px; transform: scale(1.2);">
-                    <div style="flex-grow: 1;">
-                        <strong style="color: #374151;">${item.name}</strong>
+                    <div style="flex-grow: 1; display: flex; align-items: center;">
+                        <strong style="color: #374151; margin: 0;">${item.name}</strong>
+                        ${generateTooltip(item.description)}
                     </div>
                 `;
                 extrasContainer.appendChild(row);
@@ -1184,24 +1217,38 @@ window.handleExtraClick = function(id, price, hasMultiples) {
 };
 
 // The engine that drives the math
+// The engine that drives the math
 window.updateItem = function(id, amount, price, isCounter = false) {
     if (isCounter) {
         let currentQty = wizardState.items[id]?.qty || 0;
-        let newQty = Math.max(0, currentQty + amount); // Stop at 0
+        let newQty = Math.max(0, parseInt(currentQty) + parseInt(amount)); // Stop at 0
         
-        wizardState.items[id] = { ...wizardState.items[id], qty: newQty, price: price };
+        // THE FIX: If > 0, update it. If 0, DELETE it completely.
+        if (newQty > 0) {
+            wizardState.items[id] = { qty: newQty, price: parseFloat(price) };
+        } else {
+            delete wizardState.items[id]; // <--- Wipes the ghost item
+            
+            // Your custom UI reset logic
+            const tile = document.getElementById(`tile-${id}`);
+            if (tile) tile.classList.remove('selected');
+            
+            const counterWrap = document.getElementById(`counter-wrap-${id}`);
+            if (counterWrap) counterWrap.style.display = 'none';
+        }
         
         const qtySpan = document.getElementById(`qty-${id}`);
         if(qtySpan) qtySpan.innerText = newQty;
         
-        // If they click the '-' button down to 0, completely unselect the extra
-        if (newQty === 0) {
-            document.getElementById(`tile-${id}`).classList.remove('selected');
-            document.getElementById(`counter-wrap-${id}`).style.display = 'none';
-        }
     } else {
-        wizardState.items[id] = { ...wizardState.items[id], qty: amount, price: price };
+        // Checkbox logic
+        if (amount > 0) {
+            wizardState.items[id] = { qty: amount, price: parseFloat(price) };
+        } else {
+            delete wizardState.items[id]; // <--- Wipes the ghost item
+        }
     }
+    
     calculateTotal();
 };
 

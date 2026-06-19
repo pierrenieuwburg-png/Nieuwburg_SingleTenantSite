@@ -3,17 +3,17 @@ import React, { useState } from 'react';
 function CategoryModal({ isOpen, onClose, onSuccess }) {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
-    const [promptQuestion, setPromptQuestion] = useState(""); // <-- NEW STATE
+    const [calculationMethod, setCalculationMethod] = useState("property_size");
+    const [promptQuestion, setPromptQuestion] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
-    // INLINE STYLES for reliability
     const overlayStyle = {
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.6)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999, backdropFilter: 'blur(2px)'
     };
 
     const contentStyle = {
-        backgroundColor: 'white', padding: '0', borderRadius: '12px', width: '90%', maxWidth: '450px',
+        backgroundColor: 'white', padding: '0', borderRadius: '12px', width: '90%', maxWidth: '500px',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)', overflow: 'hidden', display: 'flex', flexDirection: 'column'
     };
 
@@ -26,23 +26,28 @@ function CategoryModal({ isOpen, onClose, onSuccess }) {
             const res = await fetch('/api/admin/service-categories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token || '' },
-                // Add prompt_question to the payload
-                body: JSON.stringify({ name, description, prompt_question: promptQuestion }) 
+                body: JSON.stringify({ 
+                    name, 
+                    description, 
+                    calculation_method: calculationMethod, 
+                    prompt_question: promptQuestion 
+                })
             });
             if (!res.ok) {
                 const errorData = await res.json().catch(() => ({}));
                 throw new Error(errorData.message || "Failed to create category");
             }
             
-            // Clear form on success
+            // Reset state
             setName(""); 
             setDescription(""); 
+            setCalculationMethod("property_size");
             setPromptQuestion("");
-            onSuccess(); 
+            onSuccess();
         } catch (err) {
             alert("Error: " + err.message);
         } finally {
-            setIsSaving(false); // ALWAYS reset the saving state
+            setIsSaving(false);
         }
     };
 
@@ -73,7 +78,24 @@ function CategoryModal({ isOpen, onClose, onSuccess }) {
                         />
                     </div>
 
-                    {/* NEW PROMPT QUESTION FIELD */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
+                            Master Flow (Behavior)
+                        </label>
+                        <select 
+                            className="form-input" 
+                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db' }} 
+                            value={calculationMethod} 
+                            onChange={e => setCalculationMethod(e.target.value)} 
+                            required
+                        >
+                            <option value="property_size">Flow 1: Base Scope + Extras (Radio Buttons)</option>
+                            <option value="hourly">Flow 2: Time Block (Hourly +/- Counters)</option>
+                            <option value="a_la_carte">Flow 3: A La Carte (Checkboxes & Counters)</option>
+                            <option value="lead_gen">Flow 4: Custom Quote / Lead Gen (No Prices)</option>
+                        </select>
+                    </div>
+
                     <div style={{ marginBottom: '20px' }}>
                         <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
                             Client Prompt Question
@@ -86,12 +108,11 @@ function CategoryModal({ isOpen, onClose, onSuccess }) {
                             required 
                             placeholder="e.g. What is the size of your home?"
                         />
-                        <small style={{ color: '#6b7280', fontSize: '0.8rem' }}>This is the question the client sees before picking an item.</small>
                     </div>
                     
                     <div style={{ marginBottom: '20px' }}>
                         <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
-                            Description (Optional)
+                            Internal Description (Optional)
                         </label>
                         <textarea 
                             className="form-input" 

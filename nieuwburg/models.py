@@ -296,11 +296,14 @@ class ServiceCategory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    calculation_method = db.Column(db.String(50), nullable=False, default='options')
-    prompt_question = db.Column(db.String(255), nullable=True, default="Please select your required service:")
+    
+    # NEW: The 4 Master Flows ('property_size', 'hourly', 'a_la_carte', 'lead_gen')
+    calculation_method = db.Column(db.String(50), nullable=False, default='property_size')
+    
+    # NEW: The targeted question for the client
+    prompt_question = db.Column(db.String(255), nullable=True)
 
     items = db.relationship('ServiceItem', back_populates='category', lazy=True, cascade="all, delete-orphan")
-
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
     tenant = db.relationship('Tenant', back_populates='service_categories')
 
@@ -319,6 +322,7 @@ class ServiceItem(db.Model):
     is_material = db.Column(db.Boolean, default=False)
     is_variable_price = db.Column(db.Boolean, default=False)
     
+    # NEW: Strict designation for add-ons
     is_extra = db.Column(db.Boolean, default=False)
 
     category_id = db.Column(db.Integer, db.ForeignKey('service_category.id'), nullable=False)
@@ -347,7 +351,7 @@ class ServiceItem(db.Model):
             'estimated_time_mins': self.estimated_time_mins,
             'is_material': self.is_material,
             'is_variable_price': self.is_variable_price,
-            'is_extra': self.is_extra, # NEW: Include in dictionary output
+            'is_extra': self.is_extra, # NEW
             'category_id': self.category_id
         }
 

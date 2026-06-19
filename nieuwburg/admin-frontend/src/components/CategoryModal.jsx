@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 function CategoryModal({ isOpen, onClose, onSuccess }) {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
+    const [promptQuestion, setPromptQuestion] = useState(""); // <-- NEW STATE
     const [isSaving, setIsSaving] = useState(false);
 
     // INLINE STYLES for reliability
@@ -24,15 +25,24 @@ function CategoryModal({ isOpen, onClose, onSuccess }) {
         try {
             const res = await fetch('/api/admin/service-categories', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token },
-                body: JSON.stringify({ name, description })
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': token || '' },
+                // Add prompt_question to the payload
+                body: JSON.stringify({ name, description, prompt_question: promptQuestion }) 
             });
-            if (!res.ok) throw new Error("Failed to create category");
-            onSuccess();
-            setName(""); setDescription(""); // Clear form
+            if (!res.ok) {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.message || "Failed to create category");
+            }
+            
+            // Clear form on success
+            setName(""); 
+            setDescription(""); 
+            setPromptQuestion("");
+            onSuccess(); 
         } catch (err) {
-            alert(err.message);
-            setIsSaving(false);
+            alert("Error: " + err.message);
+        } finally {
+            setIsSaving(false); // ALWAYS reset the saving state
         }
     };
 
@@ -44,7 +54,7 @@ function CategoryModal({ isOpen, onClose, onSuccess }) {
                 <div style={{ padding: '20px', borderBottom: '1px solid #e5e7eb', backgroundColor: '#f9fafb' }}>
                     <h3 style={{ margin: 0, color: '#111827' }}>Create New Category</h3>
                     <p style={{ margin: '5px 0 0 0', fontSize: '0.85rem', color: '#6b7280' }}>
-                        Categories act as <b>Section Headers</b> on your quotes and invoices.
+                        Categories group your services and dictate the flow of the booking wizard.
                     </p>
                 </div>
                 
@@ -59,8 +69,24 @@ function CategoryModal({ isOpen, onClose, onSuccess }) {
                             value={name} 
                             onChange={e => setName(e.target.value)} 
                             required 
-                            placeholder="e.g. Labour, Plumbing Parts, Travel"
+                            placeholder="e.g. Interior Cleaning"
                         />
+                    </div>
+
+                    {/* NEW PROMPT QUESTION FIELD */}
+                    <div style={{ marginBottom: '20px' }}>
+                        <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600, fontSize: '0.9rem', color: '#374151' }}>
+                            Client Prompt Question
+                        </label>
+                        <input 
+                            className="form-input" 
+                            style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db' }} 
+                            value={promptQuestion} 
+                            onChange={e => setPromptQuestion(e.target.value)} 
+                            required 
+                            placeholder="e.g. What is the size of your home?"
+                        />
+                        <small style={{ color: '#6b7280', fontSize: '0.8rem' }}>This is the question the client sees before picking an item.</small>
                     </div>
                     
                     <div style={{ marginBottom: '20px' }}>

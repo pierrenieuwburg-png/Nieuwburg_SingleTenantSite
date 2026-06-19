@@ -836,6 +836,7 @@ def create_service_category():
         new_cat = ServiceCategory(
             name=name,
             description=data.get('description', ''),
+            prompt_question=data.get('prompt_question', 'What service do you require?'),
             tenant_id=current_user.tenant_id
         )
         db.session.add(new_cat)
@@ -885,16 +886,17 @@ def get_service_categories():
         for category in categories:
             items_data = []
             for item in category.items:
-                # --- THE FIX: Include ALL new fields here ---
+                
                 items_data.append({
                     'id': item.id,
                     'name': item.name,
-                    'description': item.description, # <--- Was missing
+                    'description': item.description, 
                     'estimated_time_mins': item.estimated_time_mins,
-                    'pricing_type': item.pricing_type, # <--- Was missing
-                    'default_rate': item.default_rate, # <--- Was missing
-                    'is_material': item.is_material,   # <--- Was missing
-                    'is_variable_price': item.is_variable_price, # <--- Was missing
+                    'pricing_type': item.pricing_type, 
+                    'default_rate': item.default_rate, 
+                    'is_material': item.is_material,   
+                    'is_variable_price': item.is_variable_price,
+                    'is_extra': item.is_extra,
                     'category_id': item.category_id,
                     'linked_clause_ids': [c.id for c in item.linked_clauses]
                 })
@@ -969,6 +971,7 @@ def create_service_item():
             default_rate=float(data.get('default_rate', 0.0)),
             is_material=bool(data.get('is_material', False)),
             is_variable_price=bool(data.get('is_variable_price', False)),
+            is_extra=bool(data.get('is_extra', False)), # <-- ADDED: Captures the Extra flag for new items
             tenant_id=current_user.tenant_id
         )
         
@@ -1009,6 +1012,7 @@ def update_service_item(item_id):
         service_item.default_rate = float(data.get('default_rate', service_item.default_rate))
         service_item.is_material = bool(data.get('is_material', service_item.is_material))
         service_item.is_variable_price = bool(data.get('is_variable_price', service_item.is_variable_price))
+        service_item.is_extra = bool(data.get('is_extra', service_item.is_extra)) # <-- ADDED: Updates the Extra flag on edit
 
         if 'category_id' in data and data['category_id'] != service_item.category_id:
             cat = ServiceCategory.query.filter_by(id=data['category_id'], tenant_id=current_user.tenant_id).first()
@@ -2669,7 +2673,7 @@ def get_public_services():
                     'default_rate': item.default_rate,
                     'is_material': item.is_material,
                     'is_variable_price': item.is_variable_price,
-                    # Retrieve prices for calculation
+                    'is_extra': item.is_extra,
                     'prices': [{'frequency': p.frequency, 'price': p.price} for p in item.prices] 
                 })
             
@@ -2765,12 +2769,15 @@ def public_get_services():
                 'description': item.description,
                 'pricing_type': item.pricing_type,
                 'default_rate': item.default_rate,
-                'estimated_time_mins': item.estimated_time_mins
+                'estimated_time_mins': item.estimated_time_mins,
+                'is_extra': item.is_extra
             } for item in category.items]
             
             categories_data.append({
                 'id': category.id,
                 'name': category.name,
+                'description': category.description,
+                'prompt_question': category.prompt_question,
                 'items': items_data
             })
         return jsonify(categories_data), 200
@@ -2816,6 +2823,7 @@ def public_submit_booking():
             phone=data.get('phone_number'),
             address=data.get('address'),
             primary_service=data.get('service_name', 'General Clean'),
+            service_frequency=data.get('frequency', 'Bi-Weekly'),
             total_price=data.get('estimated_total', 0.0),
             status='Pending', 
             tenant_id=MVP_TENANT_ID

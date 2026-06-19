@@ -32,64 +32,73 @@
             </div>
         </div>
 
-        <!-- STEP 3: CART & SCOPE (SWEEPSOUTH STYLE) -->
+        <!-- STEP 3: BUILD SERVICE -->
         <div id="booking-step-3" class="wizard-step-container">
-             <h2 class="auth-title">Build Your Service</h2>
-             <p style="text-align: center; color: #555;">Tell us about the space and select any extras.</p>
-             
-             <!-- Primary Scope (Counters) -->
-             <div class="wizard-scope-section" id="wizard-scope-items">
-                 <!-- Injected via JS -->
-             </div>
-
-             <!-- Extras (Icon Grid) -->
-             <h3 style="font-size: 1rem; color: #002244; margin-bottom: 5px;">What extras do you need?</h3>
-             <div class="wizard-extras-grid" id="wizard-extras-items">
-                 <!-- Injected via JS -->
-             </div>
-
-             <div class="wizard-live-total">
-                 <span>Estimated Total:</span>
-                 <span id="wizard-live-price">R 0.00</span>
-             </div>
-
-             <div class="modal-actions" style="justify-content: space-between; margin-top: 20px;">
-                <button class="cta-outline" onclick="goToStep(2)" style="border-color: var(--wizard-purple); color: var(--wizard-purple);">Back</button>
-                <button class="cta" onclick="goToStep(4)" style="background: var(--wizard-orange); border-color: var(--wizard-orange);">Next: Schedule</button>
+            <h2 class="auth-title">Build Your Service</h2>
+            
+            <!-- JavaScript injects the Primary Scope and Extras here -->
+            <div id="wizard-scope-container">
+                <div id="wizard-scope-items"></div>
+                <div id="wizard-extras-items" style="margin-top: 20px;"></div>
             </div>
+
+            <!-- Date, Time & Frequency anchored together -->
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+                <h3 style="color: #002244; font-size: 1.1rem; margin-bottom: 15px;">When do you need us?</h3>
+                
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <div class="form-group" style="flex: 1;">
+                        <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Select Date</label>
+                        <input type="date" id="wizard-date" class="auth-input" required>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Select Time</label>
+                        <input type="time" id="wizard-time" class="auth-input" required>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Service Frequency</label>
+                    <select id="wizard-frequency" class="auth-input" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px;" required>
+                        <option value="Once-off" selected>Once-off (Just this date)</option>
+                        <option value="Weekly">Weekly (Every week on this day & time)</option>
+                        <option value="Bi-weekly">Bi-weekly (Every 2 weeks on this day & time)</option>
+                        <option value="Monthly">Monthly (Every 4 weeks on this day & time)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- THE RESTORED LIVE CALCULATOR -->
+            <div class="wizard-live-total" style="display: flex; justify-content: space-between; align-items: center; margin-top: 25px; margin-bottom: 20px; padding: 15px; background-color: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+                <span style="font-weight: 600; color: #0369a1; font-size: 1.1rem;">Estimated Total:</span>
+                <span id="wizard-live-price" style="font-weight: 700; color: #002244; font-size: 1.3rem;">R 0.00</span>
+            </div>
+
+            <button type="button" class="cta" style="width: 100%;" onclick="goToStep(4)">Continue to Details</button>
         </div>
 
-        <!-- STEP 4: SCHEDULE & PAY (BUTTON FIXED) -->
+        <!-- STEP 4: Details & PAY (BUTTON FIXED) -->
         <div id="booking-step-4" class="wizard-step-container">
-            <h2 class="auth-title">Schedule & Checkout</h2>
+            <h2 class="auth-title">Your Details & Checkout</h2>
             
-            <div style="display: flex; gap: 15px; margin-top: 20px;">
-                <div class="form-group" style="flex: 1;">
-                    <label>Date</label>
-                    <input type="date" id="wizard-date" class="auth-input" style="width: 100%; padding: 12px;" required>
-                </div>
-                <div class="form-group" style="flex: 1;">
-                    <label>Time</label>
-                    <input type="time" id="wizard-time" class="auth-input" style="width: 100%; padding: 12px;" required>
-                </div>
-            </div>
-
-            <hr style="margin: 20px 0; border: 0; border-top: 1px solid #eee;">
+            <p style="color: #6b7280; font-size: 0.9rem; margin-bottom: 20px;">
+                You're almost done! Please provide your contact details so we can finalize your booking.
+            </p>
             
             <div style="display: flex; gap: 15px;">
                 <div class="form-group" style="flex: 1;">
-                    <label>Full Name</label>
+                    <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Full Name</label>
                     <input type="text" id="wizard-name" class="auth-input" placeholder="Jane Doe" style="width: 100%; padding: 12px;" required>
                 </div>
                 <div class="form-group" style="flex: 1;">
-                    <label>Email Address</label>
+                    <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Email Address</label>
                     <input type="email" id="wizard-email" class="auth-input" placeholder="you@example.com" style="width: 100%; padding: 12px;" required>
                 </div>
             </div>
 
             <div class="modal-actions" style="justify-content: space-between; margin-top: 30px;">
-                <button class="cta-outline" onclick="goToStep(3)" style="border-color: var(--wizard-purple); color: var(--wizard-purple);">Back</button>
-                <button class="cta" id="wizard-pay-btn" style="background: var(--wizard-green); border-color: var(--wizard-green); width: 60%;">Pay & Book</button>
+                <button type="button" class="cta-outline" onclick="goToStep(3)" style="border-color: var(--wizard-purple); color: var(--wizard-purple);">Back</button>
+                <button type="button" class="cta" id="wizard-pay-btn" style="background: var(--wizard-green); border-color: var(--wizard-green); width: 60%;">Pay & Book</button>
             </div>
         </div>
     </div>

@@ -11,17 +11,17 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
 
     const [formData, setFormData] = useState({
         name: "",
-        description: "", // New Field
+        description: "", 
         category_id: "",
         estimated_time_mins: 60,
         default_rate: "",
         pricing_type: "fixed",
         is_material: false,
         is_variable_price: false,
+        is_extra: false, // <-- TRACKING EXTRA STATUS
         linked_clause_ids: []
     });
 
-    // Inline Styles
     const overlayStyle = {
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -31,7 +31,7 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
 
     const contentStyle = {
         backgroundColor: 'white', borderRadius: '12px',
-        width: '90%', maxWidth: '700px', // Slightly wider
+        width: '90%', maxWidth: '700px',
         maxHeight: '90vh', overflowY: 'auto',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
         display: 'flex', flexDirection: 'column'
@@ -52,18 +52,24 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                 pricing_type: serviceToEdit.pricing_type || "fixed",
                 is_material: serviceToEdit.is_material || false,
                 is_variable_price: serviceToEdit.is_variable_price || false,
+                is_extra: serviceToEdit.is_extra || false, // <-- LOAD EXISTING FLAG
                 linked_clause_ids: serviceToEdit.linked_clause_ids || []
             });
         } else {
             setFormData({
-                name: "", description: "",
+                name: "", 
+                description: "",
                 category_id: initialCategoryId || "",
-                estimated_time_mins: 60, default_rate: "",
-                pricing_type: "fixed", is_material: false, is_variable_price: false,
+                estimated_time_mins: 60, 
+                default_rate: "",
+                pricing_type: "fixed", 
+                is_material: false, 
+                is_variable_price: false,
+                is_extra: false, // <-- RESET TO FALSE
                 linked_clause_ids: []
             });
         }
-        setShowAdvanced(false); // Reset advanced view
+        setShowAdvanced(false); 
 
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
         setCsrfToken(token || "");
@@ -87,12 +93,11 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
         setFormData(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
     };
 
-    // Toggle Logic: Reset pricing type if switching between Material/Service
     const handleTypeToggle = (isMaterial) => {
         setFormData(prev => ({
             ...prev,
             is_material: isMaterial,
-            pricing_type: isMaterial ? 'unit' : 'fixed' // Set defaults
+            pricing_type: isMaterial ? 'unit' : 'fixed' 
         }));
     };
 
@@ -130,8 +135,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
     return (
         <div style={overlayStyle}>
             <div style={contentStyle}>
-                
-                {/* Header */}
                 <div style={{ padding: '20px 24px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#f9fafb' }}>
                     <div>
                         <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#111827' }}>{serviceToEdit ? 'Edit Price List Item' : 'Add Price List Item'}</h2>
@@ -142,11 +145,10 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                 {isLoading ? <div style={{padding:'50px'}}><BarLoader color="#006ac6" width="100%"/></div> : (
                     <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         
-                        {/* 1. Item Identity */}
                         <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '20px'}}>
                             <div className="form-group">
                                 <label>Internal Name / Title</label>
-                                <input name="name" className="form-input" value={formData.name} onChange={handleChange} required placeholder="e.g. Exterior Painting" style={{width: '100%'}} />
+                                <input name="name" className="form-input" value={formData.name} onChange={handleChange} required placeholder="e.g. 1-2 Bedroom Home" style={{width: '100%'}} />
                             </div>
                             <div className="form-group">
                                 <label>Category</label>
@@ -157,7 +159,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                             </div>
                         </div>
 
-                        {/* 2. Type Selection (Tabs) */}
                         <div style={{display: 'flex', background: '#f3f4f6', padding: '4px', borderRadius: '8px'}}>
                             <button type="button" 
                                 onClick={() => handleTypeToggle(false)}
@@ -171,7 +172,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                             </button>
                         </div>
 
-                        {/* 3. Scope of Work / Description */}
                         <div className="form-group">
                             <label>Quote Description (Scope of Work)</label>
                             <textarea 
@@ -179,15 +179,14 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                                 className="form-input" 
                                 value={formData.description} 
                                 onChange={handleChange} 
-                                rows="6" 
-                                placeholder="Describe the scope of work...&#10;• Preparation steps&#10;• Materials included&#10;• Exclusions"
+                                rows="3" 
+                                placeholder="Briefly describe what this includes..."
                                 style={{width: '100%', resize: 'vertical', lineHeight: '1.5'}}
                             />
                         </div>
 
-                        {/* 4. Pricing Configuration */}
                         <div style={{ backgroundColor: '#f0f9ff', padding: '16px', borderRadius: '8px', border: '1px solid #bae6fd' }}>
-                            <h4 style={{margin: '0 0 10px 0', fontSize: '0.9rem', color: '#0369a1'}}>Pricing Configuration</h4>
+                            <h4 style={{margin: '0 0 10px 0', fontSize: '0.9rem', color: '#0369a1'}}>Pricing & Rules</h4>
                             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px'}}>
                                 <div className="form-group">
                                     <label>Pricing Unit</label>
@@ -212,15 +211,19 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                                     <input type="number" name="default_rate" className="form-input" value={formData.default_rate} onChange={handleChange} placeholder="0.00" step="0.01" style={{width: '100%'}} />
                                 </div>
                             </div>
-                            <div style={{marginTop: '10px'}}>
+                            <div style={{marginTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px'}}>
                                 <label style={{display: 'flex', alignItems: 'center', fontSize: '0.9rem', color: '#0369a1', cursor: 'pointer'}}>
                                     <input type="checkbox" name="is_variable_price" checked={formData.is_variable_price} onChange={handleChange} />
                                     <span style={{ marginLeft: '8px' }}>Show as "From R..." (Variable Price)</span>
                                 </label>
+                                {/* THE EXTRA FLAG CHECKBOX */}
+                                <label style={{display: 'flex', alignItems: 'center', fontSize: '0.9rem', color: '#be185d', cursor: 'pointer'}}>
+                                    <input type="checkbox" name="is_extra" checked={formData.is_extra} onChange={handleChange} />
+                                    <span style={{ marginLeft: '8px', fontWeight: 'bold' }}>Treat as an Additional Extra / Add-on</span>
+                                </label>
                             </div>
                         </div>
 
-                        {/* 5. Service Specifics (Hidden for Materials) */}
                         {!formData.is_material && (
                             <div className="form-group">
                                 <label>Typical Duration (Minutes)</label>
@@ -228,7 +231,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                             </div>
                         )}
 
-                        {/* 6. Advanced Settings Toggle */}
                         <div style={{borderTop: '1px solid #e5e7eb', paddingTop: '10px'}}>
                             <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} style={{background: 'none', border: 'none', color: '#6b7280', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center'}}>
                                 {showAdvanced ? '▼ Hide Advanced Settings' : '▶ Show Advanced Settings (T&Cs)'}
@@ -247,7 +249,6 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                             )}
                         </div>
 
-                        {/* Footer */}
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                             <button type="button" onClick={onClose} className="cta-outline">Cancel</button>
                             <button type="submit" className="cta" disabled={isSaving}>

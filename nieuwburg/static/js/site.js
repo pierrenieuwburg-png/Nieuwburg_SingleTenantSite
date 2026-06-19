@@ -993,63 +993,257 @@ function buildScopeUI() {
     const category = wizardState.servicesData.find(c => c.id === wizardState.categoryId);
     if(!category) return;
 
-    category.items.forEach(item => {
-        // If it's variable (Hourly/Sqm/Rooms), it goes into the SCOPE section
-        if (item.pricing_type !== 'fixed') {
-            wizardState.items[item.id] = { qty: 0, price: item.default_rate };
-            const row = document.createElement('div');
-            row.className = 'wizard-item-row';
-            row.style.background = 'transparent';
-            row.style.border = 'none';
-            row.style.padding = '5px 0';
-            row.innerHTML = `
-                <div>
-                    <strong style="color: #002244; font-size: 1.1rem;">${item.name}</strong>
-                </div>
-                <div class="wizard-counter">
-                    <button type="button" onclick="updateItem(${item.id}, -1, ${item.default_rate}, true)">-</button>
-                    <span id="qty-${item.id}" style="font-size: 1.2rem; font-weight: bold; width: 30px; text-align: center; display: inline-block;">0</span>
-                    <button type="button" onclick="updateItem(${item.id}, 1, ${item.default_rate}, true)">+</button>
-                </div>
-            `;
-            scopeContainer.appendChild(row);
-        } 
-        // If it's a fixed price, it goes into the EXTRAS grid
-        else {
-            wizardState.items[item.id] = { qty: 0, price: item.default_rate };
-            const tile = document.createElement('div');
-            tile.className = 'wizard-extra-tile';
-            tile.id = `extra-tile-${item.id}`;
-            const iconClass = getIconForService(item.name);
-            
-            tile.innerHTML = `
-                <i class="fa-solid ${iconClass}"></i>
-                <span>${item.name}</span>
-            `;
-            
-            tile.onclick = () => {
-                tile.classList.toggle('selected');
-                const isSelected = tile.classList.contains('selected');
-                updateItem(item.id, isSelected ? 1 : 0, item.default_rate, false);
-            };
-            extrasContainer.appendChild(tile);
+    // --- 1. DYNAMIC PROMPT QUESTION ---
+    const questionHeader = document.createElement('h4');
+    questionHeader.style.width = '100%';
+    questionHeader.style.marginBottom = '15px';
+    questionHeader.style.color = '#374151';
+    questionHeader.innerText = category.prompt_question || 'Please select your base service:';
+    scopeContainer.appendChild(questionHeader);
+
+    // --- 2. SEPARATE ITEMS ---
+    const primaryItems = category.items.filter(i => !i.is_extra);
+    const extraItems = category.items.filter(i => i.is_extra);
+
+    // Check if the user has already selected a primary item (so we know if we should unlock extras)
+    const hasPrimarySelected = primaryItems.some(item => wizardState.items[item.id]);
+
+    // --- 3. RENDER PRIMARY SCOPE ---
+    primaryItems.forEach(item => {
+        const row = document.createElement('label');
+        row.style.display = 'flex';
+        row.style.alignItems = 'center';
+        row.style.width = '100%';
+        row.style.padding = '15px';
+        row.style.marginBottom = '10px';
+        row.style.border = '1px solid #d1d5db';
+        row.style.borderRadius = '8px';
+        row.style.cursor = 'pointer';
+        row.style.transition = 'all 0.2s ease-in-out';
+        
+        // Check if this item is currently selected in the wizardState
+        const isSelected = wizardState.items[item.id] ? 'checked' : '';
+
+        // Apply active styling if already selected
+        if (isSelected) {
+            row.style.borderColor = '#006ac6';
+            row.style.backgroundColor = '#f0f9ff';
         }
+
+        row.innerHTML = `
+            <input type="radio" name="primary_scope" value="${item.id}" ${isSelected} 
+                   onchange="handlePrimarySelection(${item.id}, ${item.default_rate}, '${category.id}')" 
+                   style="margin-right: 15px; transform: scale(1.2);">
+            <div style="flex-grow: 1;">
+                <strong style="display: block; color: #002244; font-size: 1.1rem;">${item.name}</strong>
+                <span style="font-size: 0.85rem; color: #6b7280;">${item.description || ''}</span>
+            </div>
+        `;
+        
+        // Active state effect on click
+        row.onchange = (e) => {
+            document.querySelectorAll('input[name="primary_scope"]').forEach(r => {
+                r.parentElement.style.borderColor = '#d1d5db';
+                r.parentElement.style.backgroundColor = 'transparent';
+            });
+            e.target.parentElement.style.borderColor = '#006ac6';
+            e.target.parentElement.style.backgroundColor = '#f0f9ff';
+        };
+
+        scopeContainer.appendChild(row);
     });
+
+    // --- 4. RENDER EXTRAS (Add-ons) ---
+    if (extraItems.length === 0) {
+        extrasContainer.innerHTML = '<p style="color: #9ca3af; width: 100%; text-align: center;">No extras available for this service.</p>';
+    } else {
+        
+        const extrasHeader = document.createElement('h4');
+        extrasHeader.style.width = '100%';
+        extrasHeader.style.marginBottom = '15px';
+        extrasHeader.style.marginTop = '10px';
+        extrasHeader.style.color = '#374151';
+        extrasHeader.innerText = 'Do you need any extras?';
+        extrasContainer.appendChild(extrasHeader);
+
+        // *** THE FIX: LOCK EXTRAS IF NO PRIMARY IS SELECTED ***
+        if (!hasPrimarySelected) {
+            extrasContainer.style.opacity = '0.4';
+            extrasContainer.style.pointerEvents = 'none'; // Prevents all clicks
+            extrasContainer.title = "Please select a primary service first.";
+        } else {
+            extrasContainer.style.opacity = '1';
+            extrasContainer.style.pointerEvents = 'auto';
+            extrasContainer.title = "";
+        }
+
+        extraItems.forEach(item => {
+            if (item.pricing_type !== 'fixed') {
+                // Render +/- Counter
+                const currentQty = wizardState.items[item.id] ? wizardState.items[item.id].qty : 0;
+                const row = document.createElement('div');
+                row.className = 'wizard-item-row';
+                row.style.width = '100%';
+                row.style.display = 'flex';
+                row.style.justifyContent = 'space-between';
+                row.style.alignItems = 'center';
+                row.style.padding = '10px 0';
+                row.style.borderBottom = '1px solid #f3f4f6';
+                
+                row.innerHTML = `
+                    <div>
+                        <strong style="color: #374151;">${item.name}</strong>
+                    </div>
+                    <div class="wizard-counter">
+                        <button type="button" onclick="updateItem(${item.id}, -1, ${item.default_rate}, true)">-</button>
+                        <span id="qty-${item.id}" style="font-size: 1.1rem; font-weight: bold; width: 30px; text-align: center; display: inline-block;">${currentQty}</span>
+                        <button type="button" onclick="updateItem(${item.id}, 1, ${item.default_rate}, true)">+</button>
+                    </div>
+                `;
+                extrasContainer.appendChild(row);
+            } else {
+                // Render Checkbox
+                const isSelected = wizardState.items[item.id] ? 'checked' : '';
+                const row = document.createElement('label');
+                row.style.display = 'flex';
+                row.style.alignItems = 'center';
+                row.style.width = '100%';
+                row.style.padding = '10px 0';
+                row.style.borderBottom = '1px solid #f3f4f6';
+                row.style.cursor = 'pointer';
+                
+                row.innerHTML = `
+                    <input type="checkbox" ${isSelected} onchange="updateItem(${item.id}, this.checked ? 1 : 0, ${item.default_rate}, false)" style="margin-right: 15px; transform: scale(1.2);">
+                    <div style="flex-grow: 1;">
+                        <strong style="color: #374151;">${item.name}</strong>
+                    </div>
+                `;
+                extrasContainer.appendChild(row);
+            }
+        });
+    }
 }
 
-function updateItem(id, amount, price, isCounter = false) {
-    if (isCounter) {
-        let currentQty = wizardState.items[id]?.qty || 0;
-        let newQty = Math.max(0, currentQty + amount); // Don't drop below 0
-        wizardState.items[id] = { qty: newQty, price: price };
-        const qtySpan = document.getElementById(`qty-${id}`);
-        if(qtySpan) qtySpan.innerText = newQty;
-    } else {
-        // Checkbox logic
-        wizardState.items[id] = { qty: amount, price: price };
+// --- HELPER FUNCTION: Handle Primary Selection & Unlock Extras ---
+function handlePrimarySelection(itemId, price, categoryId) {
+    const category = wizardState.servicesData.find(c => c.id == categoryId);
+    if(!category) return;
+
+    // 1. Wipe out any previously selected Primary Scope items from the cart
+    const primaryItemIds = category.items.filter(i => !i.is_extra).map(i => i.id);
+    primaryItemIds.forEach(id => {
+        if (wizardState.items[id]) {
+            delete wizardState.items[id];
+        }
+    });
+
+    // 2. Add the newly selected Primary Scope item
+    wizardState.items[itemId] = { qty: 1, price: price };
+    
+    // 3. Unlock the Extras grid visually and functionally
+    const extrasContainer = document.getElementById('wizard-extras-items');
+    if (extrasContainer) {
+        extrasContainer.style.opacity = '1';
+        extrasContainer.style.pointerEvents = 'auto';
+        extrasContainer.title = "";
     }
+
+    // 4. Update the total price
     calculateTotal();
 }
+
+// Logic for Primary Scope (Only one can be selected)
+window.handleBaseTileClick = function(id, price) {
+    const tile = document.getElementById(`tile-${id}`);
+    
+    document.querySelectorAll('.base-size-tile').forEach(t => t.classList.remove('selected'));
+    Object.keys(wizardState.items).forEach(key => {
+        if(wizardState.items[key].isBase) wizardState.items[key].qty = 0;
+    });
+    
+    tile.classList.add('selected');
+    updateItem(id, 1, price, false);
+};
+
+// Logic for Extras (Click to select, click again to unselect, or reveal counter)
+window.handleExtraClick = function(id, price, hasMultiples) {
+    const tile = document.getElementById(`tile-${id}`);
+    
+    if (!hasMultiples) {
+        // Standard extra (e.g. Oven Cleaning)
+        tile.classList.toggle('selected');
+        updateItem(id, tile.classList.contains('selected') ? 1 : 0, price, false);
+    } else {
+        // Multiple extra (e.g. Windows) - First click activates it
+        if (!tile.classList.contains('selected')) {
+            tile.classList.add('selected');
+            document.getElementById(`counter-wrap-${id}`).style.display = 'flex';
+            updateItem(id, 1, price, true); // Set qty to 1 immediately
+        }
+    }
+};
+
+// The engine that drives the math
+window.updateItem = function(id, amount, price, isCounter = false) {
+    if (isCounter) {
+        let currentQty = wizardState.items[id]?.qty || 0;
+        let newQty = Math.max(0, currentQty + amount); // Stop at 0
+        
+        wizardState.items[id] = { ...wizardState.items[id], qty: newQty, price: price };
+        
+        const qtySpan = document.getElementById(`qty-${id}`);
+        if(qtySpan) qtySpan.innerText = newQty;
+        
+        // If they click the '-' button down to 0, completely unselect the extra
+        if (newQty === 0) {
+            document.getElementById(`tile-${id}`).classList.remove('selected');
+            document.getElementById(`counter-wrap-${id}`).style.display = 'none';
+        }
+    } else {
+        wizardState.items[id] = { ...wizardState.items[id], qty: amount, price: price };
+    }
+    calculateTotal();
+};
+
+window.handleTileClick = function(id, price, isBase) {
+    const tile = document.getElementById(`tile-${id}`);
+    
+    if (isBase) {
+        // 1. Visually deselect all other base tiles
+        document.querySelectorAll('.base-size-tile').forEach(t => t.classList.remove('selected'));
+        
+        // 2. Set all base items in the cart to qty 0 (Clears the math)
+        Object.keys(wizardState.items).forEach(key => {
+            if(wizardState.items[key].isBase) {
+                wizardState.items[key].qty = 0;
+            }
+        });
+        
+        // 3. Select this new tile and add to cart
+        tile.classList.add('selected');
+        updateItem(id, 1, price, false);
+    } else {
+        // Extras can be toggled on and off independently
+        tile.classList.toggle('selected');
+        updateItem(id, tile.classList.contains('selected') ? 1 : 0, price, false);
+    }
+};
+
+window.validateCartAndProceed = function() {
+    let hasBaseSelection = false;
+    
+    // Check the cart. Since we preserved the flag, this will now work perfectly.
+    Object.values(wizardState.items).forEach(item => {
+        if (item.isBase && item.qty > 0) hasBaseSelection = true;
+    });
+
+    if (!hasBaseSelection) {
+        alert("Please select a primary scope (e.g. home size) to continue.");
+        return;
+    }
+    
+    goToStep(4);
+};
 
 function calculateTotal() {
     wizardState.total = Object.values(wizardState.items).reduce((sum, item) => sum + (item.qty * item.price), 0);
@@ -1097,6 +1291,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const email = document.getElementById('wizard-email').value;
             const name = document.getElementById('wizard-name').value;
             const address = document.getElementById('street-address').value;
+            const frequency = document.getElementById('wizard-frequency').value;
+
             if(!date || !email || !name || !address) {
                 alert("Please fill out your address, name, email, and schedule date.");
                 return;

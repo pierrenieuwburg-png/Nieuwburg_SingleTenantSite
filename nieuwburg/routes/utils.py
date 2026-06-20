@@ -36,14 +36,20 @@ def send_async_email(app, msg):
             print(f"Error: {e}")
             traceback.print_exc()
 
-def log_activity(activity_type, description, user_id=None):
+def log_activity(activity_type, description, user_id=None, tenant_id=None):
     """Logs an action to the ActivityLog table."""
     if user_id is None and current_user and current_user.is_authenticated:
         user_id = current_user.id
+        
+    # Automatically grab the tenant_id from the current user if not provided
+    if tenant_id is None and current_user and current_user.is_authenticated:
+        tenant_id = getattr(current_user, 'tenant_id', None)
+
     log = ActivityLog(
         activity_type=activity_type,
         description=description,
-        user_id=user_id
+        user_id=user_id,
+        tenant_id=tenant_id
     )
     db.session.add(log)
     db.session.commit()

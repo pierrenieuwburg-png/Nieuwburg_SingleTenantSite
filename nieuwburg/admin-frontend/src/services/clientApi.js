@@ -1,10 +1,16 @@
 const API_BASE = '/client/api';
 const SHARED_API = '/api';
 
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-});
+const getHeaders = () => {
+  // Grab the secure CSRF token injected by Flask in the HTML <head>
+  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+  
+  return {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'X-CSRFToken': csrfToken // Send the token to get past Flask's security!
+  };
+};
 
 // 1. Dashboard Stats & Profile
 export const getClientDashboard = async () => {

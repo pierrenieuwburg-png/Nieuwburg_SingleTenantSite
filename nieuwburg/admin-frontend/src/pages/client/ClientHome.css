@@ -330,3 +330,247 @@
 .status-text.completed { color: #16a34a; }
 .status-text.cancelled { color: #dc2626; }
 .status-text.scheduled { color: #2563eb; }
+
+/* --- PHASE 1: MAGNETIC EMPTY STATES --- */
+.magnetic-empty-state {
+    background-color: #f9fafb;
+    border: 2px dashed #e5e7eb;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    margin-top: 10px;
+}
+.magnetic-empty-state:hover {
+    border-color: #006ac6;
+    background-color: #f0f9ff;
+}
+.empty-state-icon {
+    color: #9ca3af;
+    margin-bottom: 8px;
+    transition: color 0.2s ease;
+}
+.magnetic-empty-state:hover .empty-state-icon {
+    color: #006ac6;
+}
+.magnetic-empty-state h4 {
+    margin: 0;
+    color: #1f2937;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+.magnetic-empty-state p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 0.95rem;
+}
+.btn-primary-action {
+    margin-top: 12px;
+    background-color: #006ac6;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    box-shadow: 0 4px 6px -1px rgba(0, 106, 198, 0.2);
+}
+.btn-primary-action:hover {
+    background-color: #00529b;
+    box-shadow: 0 6px 8px -1px rgba(0, 106, 198, 0.3);
+}
+
+/* --- PHASE 2: FRICTIONLESS GROWTH BUTTONS --- */
+.history-actions {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+.btn-rebook {
+    background-color: white;
+    color: #006ac6;
+    border: 1px solid #006ac6;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.btn-rebook:hover {
+    background-color: #006ac6;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 106, 198, 0.2);
+}
+
+/* --- PHASE 3: LIVE STATUS TRACKER --- */
+.upcoming-job-wrapper {
+    background: #f9fafb;
+    border-radius: 12px;
+    padding: 1.5rem;
+    border: 1px solid #f3f4f6;
+}
+
+.live-tracker-container {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.tracker-stepper {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+}
+
+.tracker-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    z-index: 1;
+    flex: 1;
+    position: relative;
+}
+
+/* The connecting line */
+.tracker-step::before {
+    content: '';
+    position: absolute;
+    top: 16px;
+    left: -50%;
+    width: 100%;
+    height: 3px;
+    background-color: #e5e7eb;
+    z-index: -1;
+    transition: background-color 0.3s ease;
+}
+.tracker-step:first-child::before {
+    display: none;
+}
+
+.step-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #f3f4f6;
+    color: #9ca3af;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    border: 3px solid #f9fafb;
+    transition: all 0.3s ease;
+}
+
+.step-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: center;
+}
+
+/* --- Tracker States --- */
+
+/* Active State (Current step) */
+.tracker-step.active .step-icon {
+    background-color: #eff6ff;
+    color: #006ac6;
+    box-shadow: 0 0 0 4px rgba(0, 106, 198, 0.15);
+}
+.tracker-step.active .step-label {
+    color: #006ac6;
+}
+
+/* Completed State (Past steps) */
+.tracker-step.completed .step-icon {
+    background-color: #006ac6;
+    color: white;
+}
+.tracker-step.completed .step-label {
+    color: #1f2937;
+}
+.tracker-step.completed::before {
+    background-color: #006ac6;
+}
+
+/* --- PHASE 3: RATING & TIPPING WIDGET --- */
+.review-widget-container {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px dashed #e5e7eb;
+    text-align: center;
+}
+.review-widget-container h4 {
+    margin: 0 0 10px 0;
+    color: #1f2937;
+    font-size: 1.05rem;
+}
+.stars-row {
+    display: flex;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+.tipping-section {
+    animation: fadeIn 0.4s ease forwards;
+}
+.tipping-section p {
+    font-size: 0.85rem;
+    color: #6b7280;
+    margin-bottom: 10px;
+}
+.tip-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+.btn-tip {
+    background: white;
+    border: 1px solid #d1d5db;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 600;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-tip:hover {
+    border-color: #006ac6;
+    color: #006ac6;
+}
+.btn-tip.active {
+    background: #006ac6;
+    border-color: #006ac6;
+    color: white;
+    box-shadow: 0 4px 6px -1px rgba(0, 106, 198, 0.3);
+}
+.btn-submit-review {
+    background: #111827;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 100%;
+    transition: background 0.2s;
+}
+.btn-submit-review:hover {
+    background: #000000;
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

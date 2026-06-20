@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { BarLoader } from 'react-spinners';
 import { createBooking } from '../services/clientApi';
 
-const ClientBookingModal = ({ isOpen, onClose, serviceType, onSuccess }) => {
+const ClientBookingModal = ({ isOpen, onClose, preselectedService, onSuccess }) => {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         frequency: 'Once-off',
@@ -17,12 +17,13 @@ const ClientBookingModal = ({ isOpen, onClose, serviceType, onSuccess }) => {
         e.preventDefault();
         setLoading(true);
         try {
+            // Updated to match Flask's exact expected keys
             await createBooking({
-                service_type: serviceType,
+                service_type: preselectedService, 
                 ...formData
             });
             alert("Booking request sent! We will confirm shortly.");
-            onSuccess(); // Refresh parent data
+            if (onSuccess) onSuccess(); // Refresh parent data safely
             onClose();
         } catch (err) {
             alert(err.message);
@@ -44,7 +45,7 @@ const ClientBookingModal = ({ isOpen, onClose, serviceType, onSuccess }) => {
     return (
         <div style={overlayStyle}>
             <div style={modalStyle}>
-                <h2 style={{marginTop: 0}}>Book {serviceType}</h2>
+                <h2 style={{marginTop: 0}}>Book {preselectedService}</h2>
                 <form onSubmit={handleSubmit} style={{display: 'flex', flexDirection: 'column', gap: '1rem'}}>
                     
                     <label>
@@ -52,6 +53,7 @@ const ClientBookingModal = ({ isOpen, onClose, serviceType, onSuccess }) => {
                         <div style={{display: 'flex', gap: '10px', marginTop: '5px'}}>
                             <input type="date" required className="form-input" 
                                 style={{flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #ddd'}}
+                                value={formData.date}
                                 onChange={e => setFormData({...formData, date: e.target.value})}
                             />
                             <input type="time" required className="form-input" 
@@ -66,6 +68,7 @@ const ClientBookingModal = ({ isOpen, onClose, serviceType, onSuccess }) => {
                         <strong>Frequency</strong>
                         <select className="form-input" 
                             style={{width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd', marginTop: '5px'}}
+                            value={formData.frequency}
                             onChange={e => setFormData({...formData, frequency: e.target.value})}
                         >
                             <option>Once-off</option>
@@ -80,6 +83,7 @@ const ClientBookingModal = ({ isOpen, onClose, serviceType, onSuccess }) => {
                         <textarea className="form-input" rows="3"
                             style={{width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #ddd', marginTop: '5px'}}
                             placeholder="E.g. I have 3 bedrooms, please bring vacuum..."
+                            value={formData.notes}
                             onChange={e => setFormData({...formData, notes: e.target.value})}
                         ></textarea>
                     </label>

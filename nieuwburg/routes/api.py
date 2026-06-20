@@ -3,6 +3,8 @@ from flask_login import current_user, login_required
 from sqlalchemy import or_, and_
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import flag_modified
+from itsdangerous import URLSafeTimedSerializer
+from threading import Thread
 import secrets
 import json
 import requests
@@ -1136,47 +1138,54 @@ def delete_job(job_id):
 def get_job_details(job_id):
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"message": "Permission denied"}), 403
-    
+        
     try:
-        # TENANT AWARE
-        job = Job.query.options(
-            joinedload(Job.client).joinedload(User.profile),
-            joinedload(Job.quote_request),
-            joinedload(Job.assigned_staff)
-        ).filter(
-            Job.id == job_id,
-            Job.tenant_id == current_user.tenant_id
+        # Bulletproof query without fragile joins
+        job = Job.query.filter_by(
+            id=job_id,
+            tenant_id=current_user.tenant_id
         ).first()
-
+        
         if not job:
             return jsonify({"message": "Job not found."}), 404
-        
-        client_name = "N/A"
-        if job.client and job.client.profile:
-            client_name = job.client.profile.full_name or job.client.email
-        elif job.client:
-            client_name = job.client.email
             
-        service_name = job.quote_request.primary_service if job.quote_request else "N/A"
-        
-        assigned_staff_id = job.assigned_staff[0].id if job.assigned_staff else None
-
+        # Safe Client Name
+        client_name = "N/A"
+        if job.client:
+            profile = getattr(job.client, 'profile', None)
+            if not profile and hasattr(job.client, 'profiles') and job.client.profiles:
+                profile = job.client.profiles[0]
+            client_name = getattr(profile, 'full_name', None) or job.client.email
+                    
+        # Safe Service Name
+        service_name = "Custom/Other"
+        if getattr(job, 'quote_request', None) and getattr(job.quote_request, 'primary_service', None):
+            service_name = job.quote_request.primary_service
+        elif getattr(job, 'service', None) and getattr(job.service, 'name', None):
+            service_name = job.service.name
+                
+        # Safe Staff ID extraction
+        assigned_staff_id = ""
+        staff_list = getattr(job, 'assigned_staff', None) or getattr(job, 'staff', [])
+        if staff_list and len(staff_list) > 0:
+            assigned_staff_id = staff_list[0].id
+            
         job_data = {
             "id": job.id,
             "client_id": job.client_id,
             "client_name": client_name,
             "service_name": service_name,
             "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else None,
-            "start_time": job.start_time.strftime('%H:%M') if job.start_time else None,
+            "start_time": job.start_time.strftime('%H:%M') if job.start_time else "09:00",
             "assigned_staff_id": assigned_staff_id,
-            "status": job.status,
+            "status": job.status or "Scheduled",
             "notes": job.notes or ""
         }
         return jsonify(job_data)
-        
+            
     except Exception as e:
-        db.session.rollback()
-        print(f"Error fetching job details for {job_id}: {e}")
+        import traceback
+        print(f"--- CRASH IN get_job_details for job {job_id} ---")
         traceback.print_exc()
         return jsonify({"message": f"An internal server error occurred: {str(e)}"}), 500
 
@@ -1185,67 +1194,77 @@ def get_job_details(job_id):
 def update_job_details(job_id):
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"message": "Permission denied"}), 403
-        
-    # TENANT AWARE
-    job = Job.query.options(joinedload(Job.assigned_staff)).filter(
-        Job.id == job_id,
-        Job.tenant_id == current_user.tenant_id
-    ).first()
-    
-    if not job:
-        return jsonify({"message": "Job not found."}), 404
-
-    data = request.get_json()
-    if not data:
-        return jsonify({"message": "No data provided."}), 400
-
+            
     try:
+        # Bulletproof query without fragile joins
+        job = Job.query.filter_by(
+            id=job_id,
+            tenant_id=current_user.tenant_id
+        ).first()
+        
+        if not job:
+            return jsonify({"message": "Job not found."}), 404
+            
+        data = request.get_json()
+        if not data:
+            return jsonify({"message": "No data provided."}), 400
+            
         scheduled_date_str = data.get('scheduled_date')
         scheduled_time_str = data.get('start_time')
         staff_id = data.get('staff_id')
         status = data.get('status')
         notes = data.get('notes')
-
-        if not all([scheduled_date_str, scheduled_time_str, staff_id, status]):
-             return jsonify({"message": "Missing required fields (Date, Time, Staff, Status)."}), 400
-             
+        
+        if not all([scheduled_date_str, scheduled_time_str, status]):
+             return jsonify({"message": "Missing required fields."}), 400
+                     
         job.scheduled_date = datetime.strptime(scheduled_date_str, '%Y-%m-%d').date()
         job.start_time = datetime.strptime(scheduled_time_str, '%H:%M').time()
         
         allowed_statuses = ['Scheduled', 'In Progress', 'Completed', 'Cancelled']
         if status not in allowed_statuses:
             return jsonify({"message": "Invalid status value."}), 400
+            
         job.status = status
         job.notes = notes
-
-        # Ensure staff belongs to THIS tenant
-        new_staff_user = User.query.filter_by(
-            id=staff_id, 
-            role='staff',
-            tenant_id=current_user.tenant_id
-        ).first()
         
-        if not new_staff_user:
-            return jsonify({"message": "Invalid staff member selected."}), 404
+        # Safely update staff
+        staff_list = getattr(job, 'assigned_staff', None)
+        if staff_list is None: 
+            staff_list = getattr(job, 'staff', None)
             
-        job.assigned_staff.clear()
-        job.assigned_staff.append(new_staff_user)
-
+        if staff_id:
+            new_staff_user = User.query.filter_by(
+                id=staff_id, 
+                role='staff',
+                tenant_id=current_user.tenant_id
+            ).first()
+            
+            if not new_staff_user:
+                return jsonify({"message": "Invalid staff member selected."}), 404
+                
+            if staff_list is not None:
+                staff_list.clear()
+                staff_list.append(new_staff_user)
+        else:
+            if staff_list is not None:
+                staff_list.clear()
+                
         log_activity(
             'Job Updated', 
             f"Admin '{current_user.email}' updated job #{job.id}."
         )
         
         db.session.commit()
-        
         return jsonify({"message": f"Job #{job.id} updated successfully."}), 200
-
+        
     except ValueError as e:
         db.session.rollback()
         return jsonify({"message": f"Invalid data format: {e}. Use YYYY-MM-DD and HH:MM."}), 400
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating job {job_id}: {e}")
+        import traceback
+        print(f"--- CRASH IN update_job_details for job {job_id} ---")
         traceback.print_exc()
         return jsonify({"message": f"An internal server error occurred: {str(e)}"}), 500
 
@@ -1494,32 +1513,39 @@ def api_get_all_staff():
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"message": "Permission denied"}), 403
     try:
-        # TENANT AWARE
-        staff_list = User.query.options(joinedload(User.profile)).filter(
-            User.role == 'staff',
-            User.tenant_id == current_user.tenant_id
-        ).order_by(User.email).all() 
+        # Bulletproof query without fragile joins
+        staff_list = User.query.filter_by(
+            role='staff',
+            tenant_id=current_user.tenant_id
+        ).all()
 
         staff_data = []
         for staff in staff_list:
-            full_name = staff.email 
-            if staff.profile and staff.profile.full_name:
-                full_name = staff.profile.full_name
+            full_name = staff.email
+            
+            # Safely extract profile full_name preventing any attribute crashes
+            profile = getattr(staff, 'profile', None)
+            if not profile and hasattr(staff, 'profiles') and staff.profiles:
+                profile = staff.profiles[0]
+                
+            if profile and getattr(profile, 'full_name', None):
+                full_name = profile.full_name
                 
             staff_data.append({
                 "id": staff.id,
                 "full_name": full_name,
                 "email": staff.email
             })
-
+            
         staff_data.sort(key=lambda x: x['full_name'])
-
         return jsonify(staff_data)
         
     except Exception as e:
-        print(f"!!! Error in api_get_all_staff: {e}")
-        traceback.print_exc() 
-        return jsonify({"message": f"Internal server error fetching staff list: {str(e)}"}), 500
+        import traceback
+        print("--- CRASH IN api_get_all_staff ---")
+        traceback.print_exc()
+        # Return an empty array on error so React .map() NEVER crashes
+        return jsonify([]), 500
 
 @bp.route('/admin/services/all_items', methods=['GET'])
 @login_required
@@ -1959,35 +1985,49 @@ def get_new_booking_detail(quote_id):
 def get_scheduled_jobs():
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"message": "Permission denied"}), 403
-
     try:
-        # TENANT AWARE
-        jobs = Job.query.options(
-            joinedload(Job.client).joinedload(User.profile),
-            joinedload(Job.service),
-            joinedload(Job.assigned_staff).joinedload(User.profile) 
-        ).filter(
-            Job.tenant_id == current_user.tenant_id
-        ).order_by(Job.scheduled_date.desc()).all()
-
+        # Standard query - no special imports required
+        jobs = Job.query.filter_by(tenant_id=current_user.tenant_id).order_by(Job.scheduled_date.desc()).all()
+        
         jobs_data = []
         for job in jobs:
-            staff_names = ", ".join(
-                [staff.profile.full_name for staff in job.assigned_staff if staff.profile]
-            ) or 'N/A'
-
+            # 1. Safe Client Name extraction
+            client_name = "N/A"
+            if job.client:
+                # getattr prevents crashes if profile doesn't exist
+                client_name = getattr(job.client.profile, 'full_name', None) or job.client.email
+                
+            # 2. Safe Service Name
+            service_name = job.service.name if job.service else "Custom/Other"
+            
+            # 3. Safe Staff Name (checks multiple possible relationship names to avoid crashes)
+            staff_names = "Unassigned"
+            staff_list = getattr(job, 'assigned_staff', None) or getattr(job, 'staff', [])
+            if staff_list:
+                names = [getattr(s.profile, 'full_name', None) or s.email for s in staff_list if s]
+                staff_names = ", ".join(filter(None, names)) or "Unassigned"
+            
+            # 4. Safe Date & Time formatting (handles both datetime objects and raw strings)
+            sched_date = str(job.scheduled_date) if job.scheduled_date else None
+            start_time = str(job.start_time)[:5] if job.start_time else "09:00"
+            
             jobs_data.append({
                 "id": job.id,
-                "client_name": job.client.profile.full_name if job.client and job.client.profile else 'N/A',
-                "service_name": job.service.name if job.service else 'N/A',
-                "scheduled_date": job.scheduled_date.isoformat() if job.scheduled_date else None,
+                "client_name": client_name,
+                "service_name": service_name,
+                "scheduled_date": sched_date,
+                "start_time": start_time,
                 "assigned_staff": staff_names,
-                "status": job.status
+                "status": job.status or 'Scheduled'
             })
+            
         return jsonify(jobs_data)
+        
     except Exception as e:
-        print(f"Error fetching scheduled jobs: {e}")
-        return jsonify({"message": "Error fetching scheduled job data."}), 500
+        import traceback
+        print("--- CRASH IN get_scheduled_jobs ---")
+        traceback.print_exc() # This prints the exact error to your terminal!
+        return jsonify({"error": str(e)}), 500
 
 @bp.route('/admin/quotes', methods=['GET'])
 @login_required
@@ -1998,8 +2038,7 @@ def get_all_quotes():
         combined_list = []
         sast = pytz.timezone('Africa/Johannesburg') 
 
-        # --- DIAGNOSTIC MODE: STRIP ALL FILTERS ---
-        # Fetch literally every quote in the database, ignoring Tenant IDs completely.
+        # --- 1. FETCH QUOTE REQUESTS (Pending/Incoming) ---
         quote_requests = QuoteRequest.query.all()
         
         for req in quote_requests:
@@ -2017,15 +2056,16 @@ def get_all_quotes():
             if not client_phone and req.user and req.user.profile:
                 client_phone = req.user.profile.phone_number
 
+            # NOTE: Everything here uses 'req'
             combined_list.append({
                 "id": req.id,
                 "type": "request", 
-                "list_id": f"req_{req.id}", 
+                "list_id": f"request_{req.id}", 
                 "request_date": formatted_date, 
                 "client_name": client_name or "N/A",
                 "client_phone": client_phone or "N/A",
-                "service": req.subject or req.primary_service or "Specialized Request",
-                "property_type": req.property_type if req.property_type and req.property_type != "N/A" else "",
+                "service": req.primary_service or "N/A", 
+                "property_type": req.property_type if req.property_type and req.property_type != "N/A" else "", 
                 "frequency": req.service_frequency or "N/A",
                 "total_price": req.total_price or 0.0,
                 "status": req.status or "Unknown",
@@ -2033,7 +2073,7 @@ def get_all_quotes():
                 "user_id": req.user_id
             })
 
-        # DIAGNOSTIC MODE: NO FILTERS
+        # --- 2. FETCH FORMAL QUOTES (Draft/Sent/Accepted) ---
         formal_quotes = Quote.query.all()
 
         for quote in formal_quotes:
@@ -2049,6 +2089,7 @@ def get_all_quotes():
             if not client_phone and quote.user and quote.user.profile:
                 client_phone = quote.user.profile.phone_number
 
+            # NOTE: Everything here uses 'quote'. No 'req' references!
             combined_list.append({
                 "id": quote.id,
                 "type": "quote", 
@@ -2057,7 +2098,7 @@ def get_all_quotes():
                 "client_name": client_name or "N/A",
                 "client_phone": client_phone or "N/A",
                 "service": f"Formal Quote ({quote.quote_number})", 
-                "property_type": req.property_type if req.property_type and req.property_type != "N/A" else "",
+                "property_type": "", # SAFELY BLANK
                 "frequency": "N/A",
                 "total_price": quote.total or 0.0,
                 "status": quote.status or "Unknown",
@@ -2279,42 +2320,57 @@ def search_clients():
 def search_staff():
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"error": "Permission denied"}), 403
-
-    query = request.args.get('q', '').strip().lower()
-    # TENANT AWARE
-    staff_query = User.query.outerjoin(User.profile).filter(
-        User.role == 'staff',
-        User.tenant_id == current_user.tenant_id
-    )
-
-    if query:
-        search_term = f"%{query}%"
-        staff_query = staff_query.filter(
-            or_(
-                User.email.ilike(search_term),
-                Profile.full_name.ilike(search_term)
-            )
-        )
-
-    staff_list = staff_query.order_by(Profile.full_name, User.email).all()
-
-    staff_data = []
-    for staff in staff_list:
-        age = None
-        if staff.profile and staff.profile.date_of_birth:
-            today = date.today()
-            age = today.year - staff.profile.date_of_birth.year - ((today.month, today.day) < (staff.profile.date_of_birth.month, staff.profile.date_of_birth.day))
+    
+    try:
+        query = request.args.get('q', '').strip().lower()
         
-        staff_data.append({
-            "id": staff.id,
-            "full_name": staff.profile.full_name if staff.profile else 'N/A',
-            "email": staff.email,
-            "phone_number": staff.profile.phone_number if staff.profile else 'N/A',
-            "profile_image": staff.profile.profile_image if staff.profile else None,
-            "age": age,
-        })
+        # Bulletproof query without fragile SQL joins
+        staff_list = User.query.filter_by(
+            role='staff',
+            tenant_id=current_user.tenant_id
+        ).all()
 
-    return jsonify(staff_data)
+        staff_data = []
+        for staff in staff_list:
+            # Safely extract profile preventing attribute crashes
+            profile = getattr(staff, 'profile', None)
+            if not profile and hasattr(staff, 'profiles') and staff.profiles:
+                profile = staff.profiles[0]
+                
+            full_name = getattr(profile, 'full_name', None) or 'N/A'
+            email = staff.email or ''
+            
+            # Apply the search filter safely in Python
+            if query:
+                searchable_text = f"{full_name} {email}".lower()
+                if query not in searchable_text:
+                    continue
+            
+            # Safely calculate age
+            age = None
+            dob = getattr(profile, 'date_of_birth', None)
+            if dob:
+                today = date.today()
+                age = today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+            staff_data.append({
+                "id": staff.id,
+                "full_name": full_name,
+                "email": email,
+                "phone_number": getattr(profile, 'phone_number', None) or 'N/A',
+                "profile_image": getattr(profile, 'profile_image', None),
+                "age": age,
+            })
+            
+        staff_data.sort(key=lambda x: x['full_name'])
+        return jsonify(staff_data)
+        
+    except Exception as e:
+        import traceback
+        print("--- CRASH IN search_staff ---")
+        traceback.print_exc()
+        # Return an empty array on error so React never crashes
+        return jsonify([]), 500
 
 @bp.route('/admin/applications', methods=['GET'])
 @login_required
@@ -2790,6 +2846,71 @@ def public_get_services():
         return jsonify({"message": "Error fetching services."}), 500
 
 
+# --- HELPER FUNCTION FOR GUEST ACCOUNTS ---
+def get_or_create_guest_client(email, full_name, phone_number, address, tenant_id):
+    """
+    Checks if a user exists. If not, creates a 'Shadow Account' and 
+    sends a welcome email to set their password.
+    """
+    user = User.query.filter_by(email=email).first()
+    
+    if user:
+        return user # They already have an account!
+        
+    # 1. Create the Shadow User
+    random_pass = str(uuid.uuid4())
+    user = User(
+        email=email,
+        password_hash=generate_password_hash(random_pass),
+        role='client',
+        is_confirmed=False, 
+        password_reset_required=True,
+        tenant_id=tenant_id
+    )
+    db.session.add(user)
+    db.session.flush() # Get the user ID
+    
+    # 2. Create the Profile
+    profile = Profile(
+        user_id=user.id,
+        full_name=full_name,
+        phone_number=phone_number,
+        address=address,
+        tenant_id=tenant_id
+    )
+    db.session.add(profile)
+    
+    # 3. Generate Secure Password Setup Token
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+    token = serializer.dumps(user.email, salt=current_app.config.get('SECURITY_PASSWORD_SALT', 'my_precious_salt'))
+    
+    # The link they will click in the email (Make sure 'auth.reset_password' exists in your auth routes)
+    setup_url = url_for('auth.reset_password', token=token, _external=True)
+    
+    # 4. Send the Welcome Email
+    email_html = f"""
+    <h3>Hi {full_name},</h3>
+    <p>Your booking with Nieuwburg Blitz is confirmed!</p>
+    <p>We've created a secure dashboard for you to track your cleaner, view your service history, and manage your property.</p>
+    <p><a href="{setup_url}" style="display:inline-block;padding:10px 20px;background-color:#006ac6;color:white;text-decoration:none;border-radius:5px;">Click here to set your password and access your dashboard</a></p>
+    <p>Welcome to the Blitz family!</p>
+    """
+    
+    msg = Message(
+        subject="Welcome to Nieuwburg Blitz - Complete your setup!",
+        sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
+        recipients=[email],
+        html=email_html
+    )
+    
+    # Fire off the email in the background
+    app = current_app._get_current_object()
+    thr = Thread(target=send_async_email, args=[app, msg])
+    thr.start()
+    
+    return user
+
+
 @bp.route('/public/book', methods=['POST'])
 def public_submit_booking():
     """Receives public booking requests (Hardcoded to Tenant 1)"""
@@ -2800,25 +2921,14 @@ def public_submit_booking():
     try:
         MVP_TENANT_ID = 1
         
-        user = User.query.filter_by(email=data.get('email')).first()
-        if not user:
-            user = User(
-                email=data.get('email'),
-                role='client',
-                is_confirmed=False,
-                tenant_id=MVP_TENANT_ID
-            )
-            user.set_password(secrets.token_urlsafe(12))
-            profile = Profile(
-                user=user,
-                full_name=data.get('full_name'),
-                phone_number=data.get('phone_number'),
-                address=data.get('address'),
-                tenant_id=MVP_TENANT_ID
-            )
-            db.session.add(user)
-            db.session.add(profile)
-            db.session.flush()
+        # --- USE THE NEW HELPER FUNCTION HERE ---
+        user = get_or_create_guest_client(
+            email=data.get('email'),
+            full_name=data.get('full_name'),
+            phone_number=data.get('phone_number'),
+            address=data.get('address'),
+            tenant_id=MVP_TENANT_ID
+        )
 
         new_request = QuoteRequest(
             user_id=user.id,

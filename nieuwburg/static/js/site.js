@@ -488,6 +488,40 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+        // --- RESEND EMAIL LOGIC ---
+        const resendBtn = document.getElementById('resend-email-btn');
+        if (resendBtn) {
+            resendBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                const emailToResend = document.getElementById('success-email-display').textContent;
+                const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+                const msgEl = document.getElementById('resend-message');
+                
+                resendBtn.disabled = true;
+                resendBtn.textContent = "Sending...";
+                msgEl.textContent = "";
+
+                try {
+                    const res = await fetch('/auth/resend-confirmation', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                        body: JSON.stringify({ email: emailToResend })
+                    });
+                    const data = await res.json();
+                    
+                    msgEl.textContent = data.message;
+                    msgEl.style.color = data.status === 'ok' ? '#10b981' : '#ef4444';
+                } catch(err) {
+                    msgEl.textContent = "Network error. Please try again.";
+                    msgEl.style.color = '#ef4444';
+                } finally {
+                    setTimeout(() => {
+                        resendBtn.disabled = false;
+                        resendBtn.textContent = "Resend Email";
+                    }, 3000);
+                }
+            });
+        }
 
         // --- HELPER: Post Data (RESTORED) ---
         async function postFormData(url, formData) {
@@ -954,12 +988,133 @@ async function initBookingWizard() {
     }
 }
 
+// --- FLATPICKR DATE & TIME ENGINE ---
+function initDateTimePickers() {
+    const dateInput = document.getElementById('wizard-date');
+    const timeInput = document.getElementById('wizard-time');
+    const warningMsg = document.getElementById('time-warning-msg');
+    const warningText = document.getElementById('warning-text-content');
+    const confirmBtn = document.getElementById('booking-confirm-btn') || document.getElementById('booking-next-step-btn');
+    
+    if (!dateInput || !timeInput || typeof flatpickr === 'undefined') return;
+
+    const minBusinessHour = 8;
+    const maxBusinessHour = 17;
+
+    // THE SWOOSH FUNCTION
+    function showWarning(msg) {
+        warningText.innerText = msg;
+        warningMsg.classList.add('show');
+    }
+
+    function validateTimeSelection() {
+        if (!dateInput.value || !timePicker.selectedDates[0]) return;
+
+        const now = new Date();
+        const todayStr = flatpickr.formatDate(now, "Y-m-d");
+        const isToday = (dateInput.value === todayStr);
+
+        let bufferTime = new Date();
+        bufferTime.setHours(bufferTime.getHours() + 1);
+        const bufferHour = bufferTime.getHours();
+        const bufferMin = bufferTime.getMinutes();
+
+        const selTime = timePicker.selectedDates[0];
+        const selHour = selTime.getHours();
+        const selMin = selTime.getMinutes();
+
+        if (isToday && (selHour < bufferHour || (selHour === bufferHour && selMin < bufferMin))) {
+            showWarning("Take note: Same-day service requires at least 1 hour notice.");
+            timeInput.classList.add('invalid-time-input');
+            if (timePicker.timeContainer) timePicker.timeContainer.classList.add('invalid-time');
+            if (confirmBtn) confirmBtn.disabled = true;
+        } else {
+            warningMsg.classList.remove('show');
+            timeInput.classList.remove('invalid-time-input');
+            if (timePicker.timeContainer) timePicker.timeContainer.classList.remove('invalid-time');
+            if (confirmBtn) confirmBtn.disabled = false;
+        }
+    }
+
+    // 1. Initialize Time Picker
+    const timePicker = flatpickr(timeInput, {
+        enableTime: true,
+        noCalendar: true,
+        dateFormat: "H:i",
+        time_24hr: true,
+        minuteIncrement: 1, // <--- FIX: Counts by 1 minute now
+        minTime: "08:00",
+        maxTime: "17:00",
+        clickOpens: false,
+        onOpen: function() { document.body.style.overflow = 'hidden'; },
+        onClose: function() { document.body.style.overflow = 'auto'; },
+        onChange: validateTimeSelection
+    });
+
+    // 2. Initialize Date Picker
+    flatpickr(dateInput, {
+        minDate: "today",
+        dateFormat: "Y-m-d",
+        onChange: function(selectedDates, dateStr, instance) {
+            if (selectedDates.length === 0) {
+                timePicker.set("clickOpens", false);
+                timeInput.disabled = true;
+                return;
+            }
+
+            timePicker.set("clickOpens", true);
+            timeInput.disabled = false;
+
+            const selectedDate = selectedDates[0];
+            const now = new Date();
+            const isToday = selectedDate.toDateString() === now.toDateString();
+
+            if (isToday) {
+                let bufferTime = new Date();
+                bufferTime.setHours(bufferTime.getHours() + 1);
+                const bufferHour = bufferTime.getHours();
+                const bufferMin = bufferTime.getMinutes();
+
+                // If past business hours, block today entirely
+                if (bufferHour >= maxBusinessHour && bufferMin > 0) {
+                    showWarning("It is too late to book for today. Please select tomorrow.");
+                    instance.clear(); 
+                    timePicker.clear();
+                    timePicker.set("clickOpens", false);
+                    timeInput.disabled = true;
+                    if (confirmBtn) confirmBtn.disabled = true;
+                    return;
+                }
+
+                // AUTO-ALLOCATE: Set to exactly 1 hour from now (within business hours)
+                let autoH = Math.max(minBusinessHour, bufferHour);
+                let autoM = (autoH === bufferHour) ? bufferMin : 0;
+                let autoTimeStr = String(autoH).padStart(2, '0') + ":" + String(autoM).padStart(2, '0');
+                
+                timePicker.setDate(autoTimeStr, true);
+
+            } else {
+                // Future dates: Auto-allocate to 08:00 AM
+                if (timePicker.selectedDates.length === 0) {
+                    timePicker.setDate("08:00", true);
+                }
+            }
+            
+            // Run validation instantly so everything resets to standard colors
+            validateTimeSelection();
+        }
+    });
+}
+
 function goToStep(stepNumber) {
     document.querySelectorAll('.wizard-step-container').forEach(el => el.classList.remove('active'));
     const targetStep = document.getElementById(`booking-step-${stepNumber}`);
     if(targetStep) targetStep.classList.add('active');
     
-    if(stepNumber === 3) buildScopeUI();
+    if(stepNumber === 3) {
+        buildScopeUI();
+        initDateTimePickers(); // <--- Triggers the calendar rules
+    }
 }
 
 function selectCategory(catId, catName) {
@@ -983,7 +1138,6 @@ function getIconForService(name) {
 }
 
 // --- TOOLTIP CSS INJECTION ---
-// We inject this once so you don't have to hunt down your style.css file
 if (!document.getElementById('blitz-tooltip-styles')) {
     const style = document.createElement('style');
     style.id = 'blitz-tooltip-styles';
@@ -1004,6 +1158,55 @@ if (!document.getElementById('blitz-tooltip-styles')) {
         border-color: #1f2937 transparent transparent transparent;
       }
       .blitz-tooltip:hover .tooltip-text, .blitz-tooltip:active .tooltip-text { visibility: visible; opacity: 1; }
+      
+      /* --- NEW: MODERN DATE/TIME UI --- */
+      /* --- MODERN DATE/TIME UI --- */
+      .modern-datetime {
+        width: 100%; padding: 12px 15px; border: 2px solid #e5e7eb; border-radius: 8px;
+        background-color: #f9fafb; font-size: 1rem; color: #1f2937; font-weight: 500;
+        transition: all 0.2s ease; outline: none; cursor: pointer; box-sizing: border-box;
+      }
+      .modern-datetime:focus {
+        border-color: #006ac6; background-color: #fff; box-shadow: 0 0 0 4px rgba(0, 106, 198, 0.1);
+      }
+      .modern-datetime:disabled {
+        background-color: #f3f4f6; color: #9ca3af; cursor: not-allowed; border-color: #d1d5db; opacity: 0.7;
+      }
+      
+      /* --- FLOATING ERROR TOAST (THE SWOOSH) --- */
+      .time-warning-toast {
+        position: absolute; bottom: 100%; right: 0; margin-bottom: 8px;
+        background-color: #fef2f2; color: #b91c1c; border: 1px solid #f87171;
+        padding: 8px 14px; border-radius: 6px; font-size: 0.85rem; font-weight: 500;
+        display: flex; align-items: center; gap: 8px; z-index: 20;
+        box-shadow: 0 4px 10px rgba(220, 38, 38, 0.15);
+        opacity: 0; transform: translateY(10px); pointer-events: none;
+        transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      }
+      .time-warning-toast.show {
+        opacity: 1; transform: translateY(0); pointer-events: auto;
+      }
+
+      /* --- MINIMALIST ARROWS --- */
+      .flatpickr-time .numInputWrapper span.arrowUp,
+      .flatpickr-time .numInputWrapper span.arrowDown {
+        border: none !important; /* Removes the ugly boxy lines */
+        width: 30px; /* Wider hit area */
+        background: transparent !important;
+      }
+      .flatpickr-time .numInputWrapper span.arrowUp::after { border-bottom-color: #9ca3af; }
+      .flatpickr-time .numInputWrapper span.arrowDown::after { border-top-color: #9ca3af; }
+      .flatpickr-time .numInputWrapper span.arrowUp:hover::after { border-bottom-color: #006ac6; }
+      .flatpickr-time .numInputWrapper span.arrowDown:hover::after { border-top-color: #006ac6; }
+
+      /* --- RED ERROR STYLES --- */
+      .flatpickr-time.invalid-time input,
+      .flatpickr-time.invalid-time .flatpickr-time-separator {
+        color: #dc2626 !important;
+      }
+      input.modern-datetime.invalid-time-input {
+        color: #dc2626 !important; border-color: #f87171 !important; background-color: #fef2f2 !important;
+      }
     `;
     document.head.appendChild(style);
 }

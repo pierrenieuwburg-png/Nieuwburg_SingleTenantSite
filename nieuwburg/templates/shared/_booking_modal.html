@@ -46,20 +46,39 @@
             <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
                 <h3 style="color: #002244; font-size: 1.1rem; margin-bottom: 15px;">When do you need us?</h3>
                 
-                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
-                    <div class="form-group" style="flex: 1;">
-                        <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Select Date</label>
-                        <input type="date" id="wizard-date" class="auth-input" required>
+                <!-- Import Flatpickr & Modern Theme -->
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+                <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/themes/airbnb.css">
+                <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+                <div style="position: relative;">
+                    <!-- Floating Warning Message -->
+                    <div id="time-warning-msg" class="time-warning-toast">
+                        <i class="fa-solid fa-circle-exclamation"></i>
+                        <span id="warning-text-content"></span>
                     </div>
-                    <div class="form-group" style="flex: 1;">
-                        <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Select Time</label>
-                        <input type="time" id="wizard-time" class="auth-input" required>
+
+                    <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                        <div class="form-group" style="flex: 1; min-width: 150px;">
+                            <label style="font-weight: 600; font-size: 0.9rem; color: #374151; margin-bottom: 6px; display: block;">Select Date</label>
+                            <div style="position: relative; width: 100%;">
+                                <i class="fa-regular fa-calendar" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280; z-index: 2;"></i>
+                                <input type="text" id="wizard-date" class="modern-datetime" placeholder="Choose a date..." required style="padding-left: 38px;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="flex: 1; min-width: 150px;">
+                            <label style="font-weight: 600; font-size: 0.9rem; color: #374151; margin-bottom: 6px; display: block;">Select Time</label>
+                            <div style="position: relative; width: 100%;">
+                                <i class="fa-regular fa-clock" style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #6b7280; z-index: 2;"></i>
+                                <input type="text" id="wizard-time" class="modern-datetime" placeholder="Choose time..." disabled required style="padding-left: 38px;">
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div class="form-group">
-                    <label style="font-weight: bold; font-size: 0.9rem; color: #374151;">Service Frequency</label>
-                    <select id="wizard-frequency" class="auth-input" style="width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 4px;" required>
+                    <label style="font-weight: 600; font-size: 0.9rem; color: #374151; margin-bottom: 6px; display: block;">Service Frequency</label>
+                    <select id="wizard-frequency" class="modern-datetime" required>
                         <option value="Once-off" selected>Once-off (Just this date)</option>
                         <option value="Weekly">Weekly (Every week on this day & time)</option>
                         <option value="Bi-weekly">Bi-weekly (Every 2 weeks on this day & time)</option>

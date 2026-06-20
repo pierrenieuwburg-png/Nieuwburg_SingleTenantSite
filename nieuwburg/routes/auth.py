@@ -57,14 +57,12 @@ def login():
     """
     Traffic Cop Login: Authenticates user and directs them to the right dashboard.
     """
-    # Handle JSON requests (from the Modal)
     if request.is_json:
         data = request.json
         email = data.get('email')
         password = data.get('password')
         remember = data.get('remember', False)
     else:
-        # Fallback for standard form submission (if any)
         email = request.form.get('email')
         password = request.form.get('password')
         remember = request.form.get('remember_me') == 'y'
@@ -72,7 +70,7 @@ def login():
     user = User.query.filter_by(email=email).first()
 
     if user:
-        # Check Account Lockout
+        # 1. BRUTE FORCE CHECK: Lockout after 5 attempts
         if user.locked_until and user.locked_until > datetime.utcnow():
             time_remaining = user.locked_until - datetime.utcnow()
             minutes_remaining = (time_remaining.total_seconds() + 59) // 60
@@ -81,51 +79,47 @@ def login():
             flash(message, 'error')
             return redirect(url_for('main.index'))
 
-        # Check Password
+        # 2. VALIDATE PASSWORD
         if user.check_password(password):
+            # --- THE SECURITY FIX: HARD BLOCK UNVERIFIED USERS (EXCEPT ADMINS) ---
+            if not user.is_confirmed and user.role != 'admin':
+                msg = "Access Denied: Please verify your email. If you need a new link, simply sign up again!"
+                if request.is_json: return jsonify({'status': 'error', 'message': msg}), 403
+                flash(msg, 'error')
+                return redirect(url_for('main.index'))
+
             # Reset failed attempts on success
             user.failed_login_attempts = 0
             user.locked_until = None
             db.session.commit()
-            
-            # Allow login even if unconfirmed (optional decision), or enforce it:
-            # For now, we enforce confirmation for security, but you can comment this out to skip check
-            if not user.is_confirmed and user.role == 'admin': 
-                 # We can be stricter with admins, but for clients we might be lenient. 
-                 # Current logic: Strict for everyone based on previous prompts.
-                 pass 
 
             login_user(user, remember=remember)
 
             # --- THE TRAFFIC COP LOGIC ---
-            target_url = url_for('main.index') # Default fallback
+            target_url = url_for('main.index')
 
             if user.role == 'admin':
                 target_url = url_for('admin.admin_spa_shell', path='dashboard')
             elif user.role == 'staff':
                 target_url = url_for('main.staff_dashboard')
             elif user.role == 'client':
-                # Redirect clients to their dashboard
                 target_url = request.args.get('next') or '/client/dashboard' 
 
-            if request.is_json:
-                return jsonify({'status': 'ok', 'redirect': target_url})
+            if request.is_json: return jsonify({'status': 'ok', 'redirect': target_url})
             return redirect(target_url)
         
         else:
-            # Password Failed
+            # 3. FAILED PASSWORD LOGIC
             user.failed_login_attempts += 1
             user.last_failed_login = datetime.utcnow()
-            if user.failed_login_attempts >= 10:
+            if user.failed_login_attempts >= 5: # Lock after 5 attempts
                 user.locked_until = datetime.utcnow() + timedelta(minutes=15)
                 user.failed_login_attempts = 0
             db.session.commit()
 
-    # Login Failed
+    # Generic failed message
     message = 'Invalid email or password.'
-    if request.is_json:
-        return jsonify({'status': 'error', 'message': message}), 401
-    
+    if request.is_json: return jsonify({'status': 'error', 'message': message}), 401
     flash(message, 'error')
     return redirect(url_for('main.index'))
 
@@ -138,41 +132,63 @@ def register():
     data = request.json
     email = data.get('email')
     password = data.get('password')
-    full_name = data.get('full_name') # 1. Capture Name
+    full_name = data.get('full_name')
 
-    # 2. Validate Name is present
     if not email or not password or not full_name:
         return jsonify({'status': 'error', 'message': 'Please enter your full name, email, and password.'}), 400
 
-    if User.query.filter_by(email=email).first():
-        return jsonify({'status': 'error', 'message': 'Email already registered. Please log in.'}), 400
+    existing_user = User.query.filter_by(email=email).first()
+    
+    # --- THE FIX: HANDLE UNCONFIRMED USERS ---
+    if existing_user:
+        if existing_user.is_confirmed:
+            # Fully verified users get blocked from registering again
+            return jsonify({'status': 'error', 'message': 'Email already registered. Please log in.'}), 400
+        else:
+            # User exists but hasn't verified. Update their info and resend email!
+            try:
+                existing_user.set_password(password)
+                if existing_user.profile:
+                    existing_user.profile.full_name = full_name
+                else:
+                    new_profile = Profile(user_id=existing_user.id, full_name=full_name)
+                    db.session.add(new_profile)
+                db.session.commit()
+                
+                token = generate_confirmation_token(existing_user.email)
+                confirm_url = url_for('auth.confirm_email', token=token, _external=True)
+                html = render_template('email/activate.html', confirm_url=confirm_url, user=existing_user)
+                msg = Message(
+                    subject="[Nieuwburg Blitz] Please Confirm Your Email",
+                    sender=current_app.config['MAIL_USERNAME'],
+                    recipients=[existing_user.email],
+                    html=html
+                )
+                send_email_async(msg)
+                
+                return jsonify({
+                    'status': 'ok', 
+                    'message': f'Account updated! We sent a new confirmation link to {email}.'
+                })
+            except Exception as e:
+                db.session.rollback()
+                print(f"Resend Registration Error: {e}")
+                return jsonify({'status': 'error', 'message': 'System error. Please try again.'}), 500
 
+    # --- NORMAL REGISTRATION LOGIC FOR BRAND NEW EMAILS ---
     try:
-        # 3. Create User (FORCE is_confirmed=False)
-        new_user = User(
-            email=email,
-            role='client',  
-            is_confirmed=False # <--- Security: Force email check
-        )
+        new_user = User(email=email, role='client', is_confirmed=False)
         new_user.set_password(password)
         db.session.add(new_user)
         db.session.flush() 
 
-        # 4. Create Profile with Name immediately
-        new_profile = Profile(
-            user_id=new_user.id,
-            full_name=full_name
-        )
+        new_profile = Profile(user_id=new_user.id, full_name=full_name)
         db.session.add(new_profile)
-        
         db.session.commit()
         
-        # 5. Send Personalized Email
         try:
             token = generate_confirmation_token(new_user.email)
             confirm_url = url_for('auth.confirm_email', token=token, _external=True)
-            
-            # Pass 'user' to template so we can use user.profile.full_name
             html = render_template('email/activate.html', confirm_url=confirm_url, user=new_user)
             
             msg = Message(
@@ -184,16 +200,9 @@ def register():
             send_email_async(msg)
         except Exception as e:
             print(f"Email Sending Failed: {e}")
-            # Warn user but don't fail registration
-            return jsonify({
-                'status': 'ok', 
-                'message': 'Account created, but we could not send the email. Please contact support.'
-            })
+            return jsonify({'status': 'ok', 'message': 'Account created, but we could not send the email. Please contact support.'})
 
-        return jsonify({
-            'status': 'ok', 
-            'message': f'Account created! We sent a confirmation link to {email}.'
-        })
+        return jsonify({'status': 'ok', 'message': f'Account created! We sent a confirmation link to {email}.'})
 
     except Exception as e:
         db.session.rollback()

@@ -14,7 +14,6 @@ import uuid
 import traceback
 from .admin import admin_required
 from ..forms import GuestQuoteForm
-from ..models import QuoteLineItem, User
 from .utils import get_next_quote_number, log_activity, send_async_email, render_template_to_pdf, send_email_with_attachment, get_next_invoice_number
 from markupsafe import escape, Markup
 from werkzeug.utils import secure_filename
@@ -23,7 +22,7 @@ from datetime import date, datetime, time, timedelta
 from .. import db
 from ..models import (Post, ServiceCategory, ServiceItem, Job, User, Profile, 
                       QuoteRequest, Quote, StaffApplication, QuoteLineItem, 
-                      ActivityLog, Invoice, BusinessSettings, ServiceClause, Tenant, InvoiceLineItem)
+                      ActivityLog, Invoice, BusinessSettings, ServiceClause, Tenant, InvoiceLineItem, JobTask, JobPhoto)
 
 from ..forms import AddClientForm, AddStaffForm, EditStaffForm, EditClientForm
 from .auth import generate_confirmation_token
@@ -945,6 +944,7 @@ def get_service_categories():
                     'is_material': item.is_material,   
                     'is_variable_price': item.is_variable_price,
                     'is_extra': item.is_extra,
+                    'default_checklist': item.default_checklist or [],
                     'category_id': item.category_id,
                     'linked_clause_ids': [c.id for c in item.linked_clauses]
                 })
@@ -1021,7 +1021,8 @@ def create_service_item():
             default_rate=float(data.get('default_rate', 0.0)),
             is_material=bool(data.get('is_material', False)),
             is_variable_price=bool(data.get('is_variable_price', False)),
-            is_extra=bool(data.get('is_extra', False)), # NEW
+            is_extra=bool(data.get('is_extra', False)),
+            default_checklist=data.get('default_checklist', []),
             tenant_id=current_user.tenant_id
         )
         
@@ -1063,6 +1064,10 @@ def update_service_item(item_id):
         service_item.is_material = bool(data.get('is_material', service_item.is_material))
         service_item.is_variable_price = bool(data.get('is_variable_price', service_item.is_variable_price))
         service_item.is_extra = bool(data.get('is_extra', service_item.is_extra))
+
+        if 'default_checklist' in data:
+            service_item.default_checklist = data['default_checklist']
+            flag_modified(service_item, "default_checklist")
 
         if 'category_id' in data and data['category_id'] != service_item.category_id:
             cat = ServiceCategory.query.filter_by(id=data['category_id'], tenant_id=current_user.tenant_id).first()
@@ -2308,7 +2313,8 @@ def get_client_details(user_id):
             "address": profile.address or 'N/A',
             "service_frequency": profile.service_frequency or 'N/A',
             "service_fee": profile.service_fee, 
-            "notes": profile.notes or '' 
+            "notes": profile.notes or '',
+            "next_suggested_rotational_task": profile.next_suggested_rotational_task
         }
         bookings = QuoteRequest.query.filter_by(user_id=client.id, tenant_id=current_user.tenant_id).order_by(QuoteRequest.request_date.desc()).limit(10).all()
         booking_history = [{
@@ -2979,3 +2985,155 @@ def public_submit_booking():
         db.session.rollback()
         print(f"Error submitting public booking: {e}")
         return jsonify({"message": "An error occurred while processing your booking."}), 500
+    
+@bp.route('/staff/jobs/<int:job_id>/tasks', methods=['GET'])
+@login_required
+def get_job_checklist(job_id):
+    """Fetches tasks for a job. Auto-generates them if they don't exist yet."""
+    if current_user.role not in ['staff', 'admin']:
+        return jsonify({"message": "Permission denied"}), 403
+
+    job = Job.query.filter_by(id=job_id, tenant_id=current_user.tenant_id).first()
+    if not job:
+        return jsonify({"message": "Job not found"}), 404
+
+    # AUTO-GENERATOR: If no tasks exist, build a checklist for today!
+    if not job.tasks:
+        # 1. Pull dynamic tasks directly from the ServiceItem template!
+        if job.service and job.service.default_checklist:
+            for task_name in job.service.default_checklist:
+                db.session.add(JobTask(job_id=job.id, task_name=task_name, tenant_id=job.tenant_id))
+        else:
+            # Fallback just in case the Admin hasn't created a template for this service yet
+            base_name = job.service.name if job.service else "Standard Service"
+            db.session.add(JobTask(job_id=job.id, task_name=f"Complete {base_name}", tenant_id=job.tenant_id))
+        
+        # 2. Add any requested extras (If the quote request has them)
+        if job.quote_request and job.quote_request.service_details:
+             db.session.add(JobTask(job_id=job.id, task_name=f"Extras: {job.quote_request.service_details}", tenant_id=job.tenant_id))
+        
+        # 3. The Complimentary Rotational Deep Clean Task
+        client_profile = job.client.profile if job.client else None
+        rotational_name = client_profile.next_suggested_rotational_task if client_profile and client_profile.next_suggested_rotational_task else "Deep Scrub Master Shower Grout"
+        
+        db.session.add(JobTask(
+            job_id=job.id, 
+            task_name=f"[ROTATIONAL FOCUS] {rotational_name}", 
+            is_rotational=True, 
+            tenant_id=job.tenant_id
+        ))
+        db.session.commit()
+
+    tasks_data = [{
+        "id": t.id,
+        "task_name": t.task_name,
+        "is_rotational": t.is_rotational,
+        "is_completed": t.is_completed
+    } for t in job.tasks]
+    client_profile = job.client.profile if job.client else None
+    quote_req = job.quote_request
+    
+    job_info = {
+        "id": job.id,
+        "client_name": client_profile.full_name if client_profile else job.client.email,
+        "address": quote_req.address if quote_req and quote_req.address else (client_profile.address if client_profile else "No address provided"),
+        "service_name": job.service.name if job.service else "Standard Cleaning"
+    }
+
+    return jsonify({"job": job_info, "tasks": tasks_data}), 200
+
+@bp.route('/staff/tasks/<int:task_id>/toggle', methods=['POST'])
+@login_required
+def toggle_job_task(task_id):
+    """Marks a checklist item as complete or incomplete."""
+    if current_user.role not in ['staff', 'admin']:
+        return jsonify({"message": "Permission denied"}), 403
+
+    task = JobTask.query.filter_by(id=task_id, tenant_id=current_user.tenant_id).first()
+    if not task:
+        return jsonify({"message": "Task not found"}), 404
+
+    data = request.get_json()
+    task.is_completed = data.get('is_completed', not task.is_completed)
+    db.session.commit()
+
+    return jsonify({"message": "Task updated", "is_completed": task.is_completed}), 200
+
+@bp.route('/staff/jobs/<int:job_id>/photos', methods=['POST'])
+@login_required
+def upload_job_photo(job_id):
+    """Handles uploading Before, After, and Issue photos from the staff's phone."""
+    if current_user.role not in ['staff', 'admin']:
+        return jsonify({"message": "Permission denied"}), 403
+
+    job = Job.query.filter_by(id=job_id, tenant_id=current_user.tenant_id).first()
+    if not job:
+        return jsonify({"message": "Job not found"}), 404
+
+    if 'photo' not in request.files:
+        return jsonify({"message": "No photo provided"}), 400
+
+    file = request.files['photo']
+    photo_type = request.form.get('photo_type', 'General') # e.g., 'Before', 'After'
+    task_id = request.form.get('task_id') # If tied to a specific rotational task
+
+    if file and file.filename != '':
+        filename = secure_filename(file.filename)
+        # Create a unique filename so they never overwrite each other
+        unique_filename = f"job_{job_id}_{str(uuid.uuid4())[:8]}_{filename}"
+        upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+        
+        file.save(upload_path)
+
+        new_photo = JobPhoto(
+            job_id=job.id,
+            task_id=task_id if task_id else None,
+            photo_type=photo_type,
+            image_filename=unique_filename,
+            uploaded_by_id=current_user.id,
+            tenant_id=job.tenant_id
+        )
+        db.session.add(new_photo)
+        db.session.commit()
+
+        return jsonify({
+            "message": "Photo uploaded successfully!", 
+            "photo_url": f"/static/uploads/{unique_filename}",
+            "photo_id": new_photo.id
+        }), 201
+
+    return jsonify({"message": "Invalid file"}), 400
+
+@bp.route('/staff/jobs/<int:job_id>/complete', methods=['POST'])
+@login_required
+def complete_job_report(job_id):
+    """Finalizes the job and updates the client's next rotational task."""
+    if current_user.role not in ['staff', 'admin']:
+        return jsonify({"message": "Permission denied"}), 403
+
+    job = Job.query.filter_by(id=job_id, tenant_id=current_user.tenant_id).first()
+    if not job:
+        return jsonify({"message": "Job not found"}), 404
+
+    data = request.get_json() or {}
+    suggested_next_task = data.get('suggested_next_task')
+    notes = data.get('notes', '')
+
+    # 1. Update Job Status
+    job.status = 'Completed'
+    if notes:
+        job.notes = (job.notes or "") + f"\n[Staff Report]: {notes}"
+        
+    # 2. Update Client Profile with the suggestion for next time!
+    if suggested_next_task and job.client and job.client.profile:
+        job.client.profile.next_suggested_rotational_task = suggested_next_task
+
+    # 3. Log it
+    log_activity(
+        'Job Completed', 
+        f"Staff '{current_user.email}' completed Job #{job.id}. Next focus: {suggested_next_task}", 
+        tenant_id=job.tenant_id
+    )
+
+    db.session.commit()
+    return jsonify({"message": "Job successfully completed!"}), 200

@@ -10,12 +10,14 @@ const clientRoot = document.getElementById('root');
 
 // 2. Render the correct context
 if (adminRoot) {
-  // --- ADMIN PORTAL ---
-  // Mounts to: templates/admin/admin_base.html
-  // Basename: /admin (so internal routes like '/dashboard' match '/admin/dashboard')
+  // --- ADMIN OR STAFF PORTAL ---
+  // Dynamically set the basename depending on which URL triggered the shell
+  const isStaffApp = window.location.pathname.startsWith('/staff-app');
+  const base = isStaffApp ? '/staff-app' : '/admin';
+
   ReactDOM.createRoot(adminRoot).render(
     <React.StrictMode>
-      <BrowserRouter basename="/admin">
+      <BrowserRouter basename={base}>
         <App />
       </BrowserRouter>
     </React.StrictMode>
@@ -23,7 +25,6 @@ if (adminRoot) {
 } else if (clientRoot) {
   // --- CLIENT PORTAL ---
   // Mounts to: templates/client/client_dashboard.html
-  // Basename: / (so internal routes like '/client/dashboard' match full URL)
   ReactDOM.createRoot(clientRoot).render(
     <React.StrictMode>
       <BrowserRouter basename="/">

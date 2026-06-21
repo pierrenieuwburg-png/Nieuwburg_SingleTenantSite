@@ -167,7 +167,17 @@ function ClientDetail() {
 
       {/* Client Details Section (keep as is) */}
       <div className="admin-section">
+        <div style={{ marginBottom: '20px', padding: '12px', backgroundColor: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px' }}>
+            <span style={{ display: 'block', fontSize: '12px', color: '#92400e', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                <i className="fa-solid fa-arrows-rotate" style={{marginRight: '6px'}}></i> Next Rotational Focus
+            </span>
+            <span style={{ fontSize: '15px', color: '#b45309', fontWeight: '500' }}>
+                {client.profile?.next_suggested_rotational_task || "No specific focus requested."}
+            </span>
+        </div>
+        {/* ------------------------------------ */}
         <h2>Client Details</h2>
+        
         <div className="profile-details">
           {/* ... existing detail items ... */}
              <div className="detail-item"><label>Full Name</label><p>{client.profile?.full_name || 'N/A'}</p></div>

@@ -25,6 +25,7 @@ import SetupWizard from './pages/SetupWizard';
 import ClientPayments from './pages/client/ClientPayments';
 import ClientQuotes from './pages/client/ClientQuotes';
 import GuestSuccessToast from './components/GuestSuccessToast';
+import StaffJobExecution from './pages/StaffJobExecution';
 
 // --- NEW CLIENT IMPORTS ---
 import ClientLayout from './layouts/ClientLayout';
@@ -76,6 +77,8 @@ function App() {
         <Route path="/quotes/edit/:quoteId" element={<EditQuote />} />
         <Route path="/settings" element={<BusinessSettings />} />
         <Route path="/setup-wizard" element={<SetupWizard />} />
+        <Route path="/job/:jobId" element={<StaffJobExecution />} />
+        <Route path="/staff-app/job/:jobId" element={<StaffJobExecution />} />
 
         {/* =========================================
             CLIENT PORTAL ROUTES (New Layout)

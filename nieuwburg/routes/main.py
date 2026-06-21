@@ -117,8 +117,8 @@ def staff_dashboard():
 
     today = date.today()
     assigned_jobs = Job.query.options(
-        db.joinedload(Job.quote_request).joinedload(QuoteRequest.user).joinedload(User.profile),
-        db.joinedload(Job.assigned_staff).joinedload(User.profile)
+        db.joinedload(Job.quote_request).joinedload(QuoteRequest.user).joinedload(User.profiles),
+        db.joinedload(Job.assigned_staff).joinedload(User.profiles)
     ).filter(Job.assigned_staff.any(id=current_user.id)).order_by(Job.scheduled_date, Job.start_time).all()
 
     upcoming_jobs = [j for j in assigned_jobs if j.scheduled_date >= today]
@@ -479,3 +479,13 @@ def request_quote():
         db.session.rollback()
         print(f"Error saving quote: {e}")
         return jsonify({'message': 'A database error occurred. Please try again.'}), 500
+    
+@bp.route('/staff-app', defaults={'path': ''})
+@bp.route('/staff-app/<path:path>')
+@login_required
+def staff_spa_shell(path):
+    """Serves the React App for the Field Staff"""
+    if current_user.role not in ['staff', 'admin']:
+        flash('Access denied.', 'error')
+        return redirect(url_for('main.index'))
+    return render_template('admin/admin_base.html')

@@ -113,6 +113,7 @@ class Profile(db.Model):
     service_fee = db.Column(db.Float)
     notes = db.Column(db.Text)
     strengths = db.Column(db.Text)
+    next_suggested_rotational_task = db.Column(db.String(255), nullable=True)
     documents = db.Column(JSON)
     has_id_copy = db.Column(db.Boolean, default=False)
     has_drivers_license = db.Column(db.Boolean, default=False)
@@ -248,6 +249,9 @@ class Job(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
     tenant = db.relationship('Tenant', back_populates='jobs')
 
+    tasks = db.relationship('JobTask', back_populates='job', lazy=True, cascade="all, delete-orphan")
+    photos = db.relationship('JobPhoto', back_populates='job', lazy=True, cascade="all, delete-orphan")
+
 class BusinessSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     business_name = db.Column(db.String(255), default="Nieuwburg Blitz")
@@ -322,9 +326,8 @@ class ServiceItem(db.Model):
     is_material = db.Column(db.Boolean, default=False)
     is_variable_price = db.Column(db.Boolean, default=False)
     
-    # NEW: Strict designation for add-ons
     is_extra = db.Column(db.Boolean, default=False)
-
+    default_checklist = db.Column(JSON, nullable=True)
     category_id = db.Column(db.Integer, db.ForeignKey('service_category.id'), nullable=False)
     
     prices = db.relationship('ServicePrice', back_populates='service_item', lazy=True, cascade="all, delete-orphan")
@@ -390,6 +393,41 @@ class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     key = db.Column(db.String(50), unique=True, nullable=False)
     value = db.Column(db.Text, nullable=False)
+
+class JobTask(db.Model):
+    """Stores the individual checklist items for a specific job."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
+    
+    task_name = db.Column(db.String(255), nullable=False)
+    is_rotational = db.Column(db.Boolean, default=False) # Flags if this is the complimentary deep clean
+    is_completed = db.Column(db.Boolean, default=False)
+    
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
+    
+    job = db.relationship('Job', back_populates='tasks')
+    photos = db.relationship('JobPhoto', back_populates='task', lazy=True, cascade="all, delete-orphan")
+
+class JobPhoto(db.Model):
+    """Stores the Before/After/Issue photos uploaded by staff."""
+    id = db.Column(db.Integer, primary_key=True)
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
+    
+    # Optional: Link photo directly to a specific task (e.g., the Rotational task)
+    task_id = db.Column(db.Integer, db.ForeignKey('job_task.id'), nullable=True) 
+    
+    photo_type = db.Column(db.String(50), nullable=False) # 'Before', 'After', 'Issue', 'General'
+    image_filename = db.Column(db.String(255), nullable=False)
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Who took the photo?
+    uploaded_by_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True) 
+    
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
+
+    job = db.relationship('Job', back_populates='photos')
+    task = db.relationship('JobTask', back_populates='photos')
+    uploaded_by = db.relationship('User', foreign_keys=[uploaded_by_id])
 
 # --- Helper Functions ---
 def get_next_quote_number(tenant_id):

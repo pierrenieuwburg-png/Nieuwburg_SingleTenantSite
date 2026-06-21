@@ -2,6 +2,42 @@
 {% block title %}My Jobs{% endblock %}
 
 {% block dashboard_content %}
+<style>
+    /* Responsive Table Wrapper */
+    .table-responsive {
+        width: 100%;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+        margin-bottom: 15px;
+    }
+    
+    /* Ensure the table doesn't crush itself on small screens */
+    .data-table {
+        width: 100%;
+        border-collapse: collapse;
+        min-width: 700px; 
+    }
+
+    /* Clean Action Buttons */
+    .action-btn {
+        display: inline-block;
+        padding: 8px 12px;
+        background-color: #10b981;
+        color: white;
+        text-decoration: none;
+        border-radius: 5px;
+        font-weight: bold;
+        font-size: 0.85em;
+        white-space: nowrap;
+    }
+    .action-btn:hover { background-color: #059669; color: white; }
+    
+    .action-btn.past {
+        background-color: #6b7280;
+    }
+    .action-btn.past:hover { background-color: #4b5563; }
+</style>
+
 <div class="dashboard-header">
     <h1>My Jobs</h1>
     <p>Here are your upcoming and past job assignments.</p>
@@ -10,26 +46,36 @@
 <div class="admin-section">
     <h2>Upcoming Jobs</h2>
     {% if upcoming_jobs %}
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Service</th>
-                <th>Assigned Staff</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for job in upcoming_jobs %}
-            <tr>
-                <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
-                <td>{{ job.quote_request.user.profile.full_name if job.quote_request and job.quote_request.user else 'N/A' }}</td>
-                <td>{{ job.quote_request.primary_service if job.quote_request else 'N/A' }}</td>
-                <td>{{ job.assigned_staff|map(attribute='profile.full_name')|join(', ') }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Client</th>
+                    <th>Service</th>
+                    <th>Assigned Staff</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in upcoming_jobs %}
+                <tr>
+                    <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
+                    <td>{{ job.start_time.strftime('%H:%M') if job.start_time else '--:--' }}</td>
+                    <td>{{ job.quote_request.user.profile.full_name if job.quote_request and job.quote_request.user else 'N/A' }}</td>
+                    <td>{{ job.quote_request.primary_service if job.quote_request else 'N/A' }}</td>
+                    <td>{{ job.assigned_staff|map(attribute='profile.full_name')|join(', ') }}</td>
+                    <td>
+                        <a href="/staff-app/job/{{ job.id }}" class="action-btn">
+                            Start Job &rarr;
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
     <p>No upcoming jobs assigned.</p>
     {% endif %}
@@ -38,24 +84,34 @@
 <div class="admin-section">
     <h2>Past Jobs</h2>
     {% if past_jobs %}
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Date</th>
-                <th>Client</th>
-                <th>Service</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for job in past_jobs %}
-            <tr>
-                <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
-                <td>{{ job.quote_request.user.profile.full_name if job.quote_request and job.quote_request.user else 'N/A' }}</td>
-                <td>{{ job.quote_request.primary_service if job.quote_request else 'N/A' }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Client</th>
+                    <th>Service</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for job in past_jobs %}
+                <tr>
+                    <td>{{ job.scheduled_date.strftime('%d %b %Y') }}</td>
+                    <td>{{ job.quote_request.user.profile.full_name if job.quote_request and job.quote_request.user else 'N/A' }}</td>
+                    <td>{{ job.quote_request.primary_service if job.quote_request else 'N/A' }}</td>
+                    <td><strong>{{ job.status }}</strong></td>
+                    <td>
+                        <a href="/staff-app/job/{{ job.id }}" class="action-btn past">
+                            View Report
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
     <p>No past jobs.</p>
     {% endif %}

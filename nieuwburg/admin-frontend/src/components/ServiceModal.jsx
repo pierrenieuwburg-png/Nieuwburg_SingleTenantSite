@@ -19,7 +19,8 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
         is_material: false,
         is_variable_price: false,
         is_extra: false, 
-        linked_clause_ids: []
+        linked_clause_ids: [],
+        default_checklist: []
     });
 
     const overlayStyle = {
@@ -36,6 +37,8 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)',
         display: 'flex', flexDirection: 'column'
     };
+
+    const [newTaskEntry, setNewTaskEntry] = useState('');
 
     useEffect(() => {
         if (!isOpen) return;
@@ -107,6 +110,24 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
             if (options[i].selected) selected.push(parseInt(options[i].value));
         }
         setFormData(prev => ({ ...prev, linked_clause_ids: selected }));
+    };
+
+    const handleAddChecklistItem = (e) => {
+        e.preventDefault();
+        if (newTaskEntry.trim() !== '') {
+            setFormData(prev => ({
+                ...prev,
+                default_checklist: [...(prev.default_checklist || []), newTaskEntry.trim()]
+            }));
+            setNewTaskEntry('');
+        }
+    };
+
+    const handleRemoveChecklistItem = (indexToRemove) => {
+        setFormData(prev => ({
+            ...prev,
+            default_checklist: (prev.default_checklist || []).filter((_, index) => index !== indexToRemove)
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -221,6 +242,60 @@ function ServiceModal({ isOpen, onClose, onSuccess, serviceToEdit, initialCatego
                                 </label>
                             </div>
                         </div>
+
+                        {/* --- PHASE 4: CHECKLIST BUILDER UI --- */}
+                        {!formData.is_material && (
+                            <div style={{ backgroundColor: '#f9fafb', padding: '16px', borderRadius: '8px', border: '1px solid #e5e7eb', marginTop: '5px' }}>
+                                <h4 style={{margin: '0 0 10px 0', fontSize: '0.9rem', color: '#374151'}}>Default Checklist Template</h4>
+                                <p style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 15px 0' }}>These tasks will auto-populate for staff when this service is booked.</p>
+                                
+                                <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
+                                    <input 
+                                        type="text" 
+                                        value={newTaskEntry}
+                                        onChange={(e) => setNewTaskEntry(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddChecklistItem(e); }}
+                                        placeholder="e.g., Vacuum all carpets"
+                                        className="form-input"
+                                        style={{ flex: 1, padding: '8px' }}
+                                    />
+                                    <button 
+                                        type="button" 
+                                        onClick={handleAddChecklistItem}
+                                        style={{ padding: '8px 15px', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: 600 }}
+                                    >
+                                        Add
+                                    </button>
+                                </div>
+
+                                {formData.default_checklist?.length > 0 ? (
+                                    <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {formData.default_checklist.map((task, index) => (
+                                            <li key={index} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '6px', fontSize: '0.85rem', color: '#1f2937' }}>
+                                                <span>• {task}</span>
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => handleRemoveChecklistItem(index)}
+                                                    style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2rem', padding: '0 5px' }}
+                                                >
+                                                    &times;
+                                                </button>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                ) : (
+                                    <p style={{ fontSize: '0.85rem', color: '#9ca3af', fontStyle: 'italic', margin: 0 }}>No default tasks added yet.</p>
+                                )}
+                            </div>
+                        )}
+                        {/* -------------------------------------- */}
+
+                        {!formData.is_material && (
+                            <div className="form-group">
+                                <label>Typical Duration (Minutes)</label>
+                                <input type="number" name="estimated_time_mins" className="form-input" value={formData.estimated_time_mins} onChange={handleChange} style={{width: '150px'}} />
+                            </div>
+                        )}
 
                         {!formData.is_material && (
                             <div className="form-group">

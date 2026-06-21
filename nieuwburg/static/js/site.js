@@ -80,6 +80,14 @@ function initializePasswordValidator() {
 // --- MAIN DOM INITIALIZATION LOGIC ---
 document.addEventListener('DOMContentLoaded', function() {
     
+    // --- VANILLA JS SUCCESS TOAST CATCHER ---
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('booking_success') === 'true') {
+        alert("Booking Successful! Please check your email for your dashboard password.");
+        // Clean the URL so it doesn't alert again if they refresh
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     // 1. Smooth Scrolling Fixed Header System (Safely placed here!)
     const header = document.querySelector('.site-header');
     if (header) {
@@ -184,7 +192,6 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.addEventListener('click', (e) => {
             if (e.target === modal) closeModal();
         });
-
         attachFormListeners();
     };
 
@@ -840,10 +847,12 @@ async function initializePaystack(bookingData) {
             ref: `booking_${Math.floor((Math.random() * 1000000000) + 1)}`,
             metadata: {
                 type: "public_booking",
-                payer_name: bookingData.full_name
+                payer_name: bookingData.full_name,
+                quote_id: bookingData.quote_id
             },
             callback: function(response) {
-                // Redirect to the success page upon successful payment
+                // CRITICAL FIX: Send them to the BACKEND to process the database and email!
+                // The backend will handle redirecting them to the homepage toast afterwards.
                 window.location.href = `/payment-callback?reference=${response.reference}`;
             },
             onClose: function() {
@@ -1563,27 +1572,27 @@ document.addEventListener('DOMContentLoaded', () => {
             };
 
             try {
-                // 1. Log the lead in the database first (so you don't lose them if they abandon cart)
+                // 1. Log the lead in the database
                 const response = await fetch('/api/public/book', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 
-                if (!response.ok) {
-                    throw new Error("Failed to save booking details.");
-                }
+                const result = await response.json();
 
-                // 2. TRIGGER PAYSTACK SECURE CHECKOUT
+                if (!response.ok) throw new Error("Failed to save booking details.");
+
+                // 2. TRIGGER PAYSTACK
                 payBtn.innerText = 'Opening Secure Checkout...';
                 
                 const paystackData = {
                     email: payload.email,
                     totalPrice: payload.estimated_total,
-                    full_name: payload.full_name
+                    full_name: payload.full_name,
+                    quote_id: result.quote_id
                 };
                 
-                // This calls the existing Paystack function in your site.js
                 await initializePaystack(paystackData);
                 
                 // Close the wizard modal so the Paystack iframe takes center stage

@@ -323,7 +323,8 @@ def reset_password(token):
     
     if form.validate_on_submit():
         user.set_password(form.password.data)
-        user.password_reset_required = False 
+        user.password_reset_required = False
+        user.is_confirmed = True
         db.session.commit()
         login_user(user)
         flash('Your password has been updated and you are now logged in!', 'success')

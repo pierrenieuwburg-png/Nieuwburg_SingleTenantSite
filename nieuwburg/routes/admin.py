@@ -23,18 +23,6 @@ def admin_required(f):
     return decorated_function
 
 # --- Server-Side Admin Actions ---
-
-@bp.route('/clients/delete/<int:user_id>', methods=['POST'])
-@admin_required
-def delete_client(user_id):
-    client_to_delete = db.session.get(User, user_id)
-    if client_to_delete and client_to_delete.role == 'client' and client_to_delete.tenant_id == current_user.tenant_id:
-        db.session.delete(client_to_delete)
-        log_activity('Client Deleted', f"Admin deleted client: {client_to_delete.email}")
-        db.session.commit()
-        return jsonify({'status': 'ok', 'message': 'Client deleted.'})
-    return jsonify({'status': 'error', 'message': 'User not found or permission denied.'}), 404
-
 @bp.route('/staff/delete/<int:user_id>', methods=['POST'])
 @admin_required
 def delete_staff(user_id):

@@ -40,3 +40,46 @@
 .read-the-docs {
   color: #888;
 }
+
+/* --- SIMPLE MODAL STYLES (For Deletion Confirmations, etc.) --- */
+.modal-overlay.simple-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.6); /* Crucial: Dark, semi-transparent background */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 99999;
+}
+
+.simple-modal .modal-content {
+  background-color: #ffffff;
+  padding: 30px;
+  border-radius: 8px;
+  max-width: 450px;
+  width: 90%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  text-align: left;
+}
+
+.simple-modal .modal-content h3 {
+  margin-top: 0;
+  color: #1f2937;
+  font-size: 1.5rem;
+}
+
+.simple-modal .modal-content p {
+  color: #4b5563;
+  line-height: 1.6;
+  font-size: 1.1rem;
+}
+
+.simple-modal .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 25px;
+}

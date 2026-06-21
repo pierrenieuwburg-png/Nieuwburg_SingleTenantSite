@@ -213,7 +213,7 @@ def payment_callback():
     reference = request.args.get('reference')
     if not reference:
         flash('No payment reference provided.', 'error')
-        return redirect(url_for('main.pricing'))
+        return redirect(url_for('main.index'))
 
     try:
         # 1. Verify Transaction
@@ -224,47 +224,62 @@ def payment_callback():
         response = requests.get(verify_url, headers=headers)
         response_data = response.json()
 
-        if not response_data['status']:
-            flash(f"Payment verification failed: {response_data['message']}", 'error')
-            return redirect(url_for('main.pricing'))
+        if not response_data.get('status'):
+            flash(f"Payment verification failed: {response_data.get('message')}", 'error')
+            return redirect(url_for('main.index'))
 
-        data = response_data['data']
-        metadata = data.get('metadata', {})
+        data = response_data.get('data', {})
+        raw_metadata = data.get('metadata') or {}
         
-        if data['status'] == 'success':
+        # --- THE ULTIMATE METADATA EXTRACTOR ---
+        metadata = {}
+        if isinstance(raw_metadata, dict):
+            metadata = raw_metadata
+        elif isinstance(raw_metadata, str):
+            import json
+            try:
+                metadata = json.loads(raw_metadata)
+            except Exception:
+                pass
+                
+        meta_type = metadata.get('type')
+        quote_id = metadata.get('quote_id')
+        
+        # Paystack Custom Fields fallback
+        if not meta_type and 'custom_fields' in metadata:
+            for field in metadata['custom_fields']:
+                if field.get('variable_name') == 'type':
+                    meta_type = field.get('value')
+                if field.get('variable_name') == 'quote_id':
+                    quote_id = field.get('value')
+        
+        if data.get('status') == 'success':
             # ---------------------------------------------------------
-            # SCENARIO A: SUBSCRIPTION PAYMENT (New Tenant or Upgrade)
+            # SCENARIO A: SUBSCRIPTION PAYMENT
             # ---------------------------------------------------------
             if 'plan_type' in metadata:
                 tenant_id = metadata.get('tenant_id')
                 user_id = metadata.get('user_id')
                 
-                # Activate Tenant
                 tenant = Tenant.query.get(tenant_id)
                 if tenant:
                     tenant.is_active = True
                     tenant.paystack_reference = reference
                 
-                # Activate User
                 user = User.query.get(user_id)
                 if user:
                     user.is_confirmed = True
                     user.confirmed_on = datetime.utcnow()
-                    
-                    # Force Login (Handles both new and upgraded users)
                     login_user(user)
                 
                 db.session.commit()
-                
                 flash("Payment successful! Welcome to Nieuwburg Blitz.", 'success')
-                
-                # FIX: Redirect to Setup Wizard instead of Dashboard
                 return redirect(url_for('admin.admin_spa_shell', path='setup-wizard'))
 
             # ---------------------------------------------------------
             # SCENARIO B: INVOICE PAYMENT
             # ---------------------------------------------------------
-            elif metadata.get('type') == 'invoice_payment':
+            elif meta_type == 'invoice_payment':
                 invoice_id = metadata.get('invoice_id')
                 invoice = Invoice.query.get(invoice_id)
                 if invoice:
@@ -276,28 +291,109 @@ def payment_callback():
             # ---------------------------------------------------------
             # SCENARIO C: QUOTE DEPOSIT
             # ---------------------------------------------------------
-            elif 'quote_id' in metadata:
+            elif 'quote_id' in metadata and meta_type != 'public_booking':
                 quote_id = metadata.get('quote_id')
                 quote = Quote.query.get(quote_id)
                 if quote:
                     quote.deposit_paid = True
-                    quote.status = 'Accepted' # Auto-accept on deposit
+                    quote.status = 'Accepted' 
                     db.session.commit()
                     flash('Deposit received. Quote accepted!', 'success')
-                    # Redirect to the quote view
                     return redirect(url_for('main.public_quote_view', token=quote.acceptance_token))
+
+            # ---------------------------------------------------------
+            # SCENARIO D: PUBLIC WIZARD BOOKING (THE FIX)
+            # ---------------------------------------------------------
+            elif meta_type == 'public_booking':
+                
+                if quote_id:
+                    from ..models import QuoteRequest, Job, ServiceItem, User
+                    from .utils import log_activity, send_async_email
+                    from flask_mail import Message
+                    from itsdangerous import URLSafeTimedSerializer
+                    from threading import Thread
+                    
+                    quote_req = QuoteRequest.query.get(quote_id)
+
+                    if quote_req and quote_req.status in ['Pending', 'New']:
+                        # 1. Update status so it vanishes from Quotes
+                        quote_req.status = 'Confirmed'
+                        
+                        # 2. Add to Job Calendar
+                        service_item = ServiceItem.query.filter_by(
+                            name=quote_req.primary_service, 
+                            tenant_id=quote_req.tenant_id
+                        ).first()
+                        
+                        sched_date = date.today()
+                        start_time = datetime.strptime("08:00", "%H:%M").time()
+                        
+                        try:
+                            if "(Requested for " in quote_req.description:
+                                time_part = quote_req.description.split("(Requested for ")[1].split(")")[0]
+                                d_str, t_str = time_part.split(" ")
+                                sched_date = datetime.strptime(d_str, "%Y-%m-%d").date()
+                                start_time = datetime.strptime(t_str, "%H:%M").time()
+                        except Exception as e:
+                            print(f"Time parsing failed: {e}")
+
+                        new_job = Job(
+                            quote_request_id=quote_req.id,
+                            client_id=quote_req.user_id,
+                            service_id=service_item.id if service_item else None,
+                            scheduled_date=sched_date,
+                            start_time=start_time,
+                            status='Scheduled',
+                            notes=f"Paid upfront via Paystack. Ref: {reference}",
+                            tenant_id=quote_req.tenant_id
+                        )
+                        db.session.add(new_job)
+                        
+                        # 3. Trigger the Welcome Email NOW (Behind the Paywall)
+                        user = User.query.get(quote_req.user_id)
+                        if user and getattr(user, 'password_reset_required', False):
+                            serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+                            token = serializer.dumps(user.email, salt=current_app.config.get('SECURITY_PASSWORD_SALT', 'my_precious_salt'))
+                            setup_url = url_for('auth.reset_password', token=token, _external=True)
+                            
+                            client_name = quote_req.name or "Valued Client"
+                            email_html = f"""
+                            <h3>Hi {client_name},</h3>
+                            <p>Your payment was successful and your booking with Nieuwburg Blitz is confirmed!</p>
+                            <p>We've created a secure dashboard for you to track your cleaner, view your service history, and manage your property.</p>
+                            <p><a href="{setup_url}" style="display:inline-block;padding:10px 20px;background-color:#006ac6;color:white;text-decoration:none;border-radius:5px;">Click here to set your password and access your dashboard</a></p>
+                            <p>Welcome to the Blitz family!</p>
+                            """
+                            
+                            msg = Message(
+                                subject="Booking Confirmed! Complete your setup.",
+                                sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
+                                recipients=[user.email],
+                                html=email_html
+                            )
+                            
+                            app = current_app._get_current_object()
+                            thr = Thread(target=send_async_email, args=[app, msg])
+                            thr.start()
+                        
+                        log_activity('Public Booking Paid', f"Job #{new_job.id} created from upfront payment.", tenant_id=quote_req.tenant_id)
+                        db.session.commit()
+
+                # Redirect back to homepage with Toast flags attached
+                return redirect(url_for('main.index', booking_success='true', new_user='true'))
 
         else:
             flash('Payment was not successful.', 'error')
-            return redirect(url_for('main.pricing'))
+            return redirect(url_for('main.index'))
 
     except Exception as e:
         print(f"Payment Callback Error: {e}")
+        import traceback
+        traceback.print_exc()
         flash('An error occurred verifying payment.', 'error')
         return redirect(url_for('main.index'))
 
     return redirect(url_for('main.index'))
-
 
 @bp.route('/check-email')
 def check_email():

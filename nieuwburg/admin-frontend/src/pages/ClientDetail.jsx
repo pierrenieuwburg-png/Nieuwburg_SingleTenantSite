@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 
 // Simple inline confirmation modal component
+// Simple class-based confirmation modal component
 const ConfirmationModal = ({ isOpen, onClose, onConfirm, message }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay simple-modal" style={{ display: 'flex' }}>
-      <div className="modal-content" style={{ maxWidth: '450px' }}>
-        <h3 style={{ marginTop: 0 }}>Confirm Deletion</h3>
+    <div className="modal-overlay simple-modal">
+      <div className="modal-content">
+        <h3>Confirm Deletion</h3>
         <p>{message}</p>
         <div className="modal-actions">
           <button onClick={onClose} className="cta-outline">Cancel</button>
@@ -82,24 +83,23 @@ function ClientDetail() {
     if (!csrfToken) {
         setDeleteError("Cannot delete: CSRF token missing.");
         setIsDeleting(false);
-        closeDeleteModal(); // Close modal on CSRF error
+        closeDeleteModal(); 
         return;
     }
 
     try {
-      const response = await fetch(`/admin/clients/delete/${clientId}`, { // Use Flask route
-        method: 'POST',
+      // FIX: Add the /api/ prefix to ensure it hits the API blueprint
+      const response = await fetch(`/api/admin/clients/delete/${clientId}`, { 
+        method: 'POST', 
         headers: {
           'Content-Type': 'application/json',
           'X-CSRFToken': csrfToken,
         },
-        // No body needed for this specific delete route usually
       });
 
       const result = await response.json();
 
       if (response.ok) {
-        // Redirect to client list on success, maybe pass success message via state if needed
         navigate('/clients', { state: { flashMessage: { type: 'success', text: result.message || 'Client deleted successfully.' } } });
       } else {
         throw new Error(result.message || 'Failed to delete client.');
@@ -107,13 +107,10 @@ function ClientDetail() {
     } catch (err) {
       console.error('Error deleting client:', err);
       setDeleteError(`Deletion failed: ${err.message}`);
-      setIsDeleting(false); // Re-enable button
-      closeDeleteModal(); // Close modal on error
+      setIsDeleting(false); 
+      closeDeleteModal(); 
     }
-    // No finally block needed here, navigation handles success
   };
-  // --- End Delete Logic ---
-
 
   // Helper to format currency (keep as is)
   const formatCurrency = (value) => {

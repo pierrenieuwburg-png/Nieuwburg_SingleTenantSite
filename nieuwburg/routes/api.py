@@ -109,6 +109,51 @@ def update_client_details(user_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': f'Database error occurred: {e}'}), 500
+
+@bp.route('/admin/clients/delete/<int:user_id>', methods=['POST'])
+@login_required
+def api_delete_client(user_id):
+    if not current_user.is_authenticated or current_user.role != 'admin':
+        return jsonify({"message": "Permission denied"}), 403
+
+    # Ensure the CSRF token is checked, matching the frontend request
+    csrf_token = request.headers.get('X-CSRFToken')
+    if not csrf_token:
+        return jsonify({"message": "CSRF token missing"}), 400
+
+    try:
+        # First, find the specific profile linked to this tenant
+        profile = Profile.query.filter_by(user_id=user_id, tenant_id=current_user.tenant_id).first()
+        
+        if not profile:
+            return jsonify({"message": "Client not found in your list."}), 404
+
+        # Important Multi-Tenant Consideration: 
+        # If this is a true single-tenant app now, you might want to delete the User record as well.
+        # However, deleting just the Profile unlinks them from THIS business, which is safer if
+        # the User account might be used elsewhere or if you want to keep the base record.
+        # Given your previous `routes/admin.py` deleted the User, let's replicate that logic safely.
+
+        client_user = db.session.get(User, user_id)
+        if client_user and client_user.role == 'client':
+             # We delete the User. SQLAlchemy cascading should handle the Profile.
+             db.session.delete(client_user)
+             db.session.commit()
+             
+             # Assuming 'log_activity' is imported from .utils at the top of api.py
+             from .utils import log_activity 
+             log_activity('Client Deleted', f"Admin '{current_user.email}' deleted client ID {user_id}.")
+             
+             return jsonify({"message": "Client deleted successfully."}), 200
+        else:
+             return jsonify({"message": "Invalid user record."}), 400
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting client {user_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"message": f"An internal error occurred: {str(e)}"}), 500
     
 @bp.route('/admin/dashboard-stats', methods=['GET'])
 @login_required
@@ -2039,7 +2084,11 @@ def get_all_quotes():
         sast = pytz.timezone('Africa/Johannesburg') 
 
         # --- 1. FETCH QUOTE REQUESTS (Pending/Incoming) ---
-        quote_requests = QuoteRequest.query.all()
+        # FIX: Only grab ones that are still Pending, ensuring they vanish when Confirmed.
+        quote_requests = QuoteRequest.query.filter(
+            QuoteRequest.status.in_(['Pending', 'New']),
+            QuoteRequest.tenant_id == current_user.tenant_id
+        ).all()
         
         for req in quote_requests:
             formatted_date = 'N/A'
@@ -2056,7 +2105,6 @@ def get_all_quotes():
             if not client_phone and req.user and req.user.profile:
                 client_phone = req.user.profile.phone_number
 
-            # NOTE: Everything here uses 'req'
             combined_list.append({
                 "id": req.id,
                 "type": "request", 
@@ -2074,7 +2122,9 @@ def get_all_quotes():
             })
 
         # --- 2. FETCH FORMAL QUOTES (Draft/Sent/Accepted) ---
-        formal_quotes = Quote.query.all()
+        formal_quotes = Quote.query.filter_by(
+            tenant_id=current_user.tenant_id
+        ).all()
 
         for quote in formal_quotes:
             formatted_date = 'N/A'
@@ -2089,7 +2139,6 @@ def get_all_quotes():
             if not client_phone and quote.user and quote.user.profile:
                 client_phone = quote.user.profile.phone_number
 
-            # NOTE: Everything here uses 'quote'. No 'req' references!
             combined_list.append({
                 "id": quote.id,
                 "type": "quote", 
@@ -2098,7 +2147,7 @@ def get_all_quotes():
                 "client_name": client_name or "N/A",
                 "client_phone": client_phone or "N/A",
                 "service": f"Formal Quote ({quote.quote_number})", 
-                "property_type": "", # SAFELY BLANK
+                "property_type": "", 
                 "frequency": "N/A",
                 "total_price": quote.total or 0.0,
                 "status": quote.status or "Unknown",
@@ -2849,86 +2898,64 @@ def public_get_services():
 # --- HELPER FUNCTION FOR GUEST ACCOUNTS ---
 def get_or_create_guest_client(email, full_name, phone_number, address, tenant_id):
     """
-    Checks if a user exists. If not, creates a 'Shadow Account' and 
-    sends a welcome email to set their password.
+    Checks if a user exists. If not, creates a 'Shadow Account'.
+    Ensures the user has a Profile linked to the active tenant.
+    Email sending is deferred until payment succeeds in the callback.
     """
     user = User.query.filter_by(email=email).first()
     
-    if user:
-        return user # They already have an account!
+    if not user:
+        # 1. Create the Shadow User (Instantly Confirmed!)
+        random_pass = str(uuid.uuid4())
+        user = User(
+            email=email,
+            password_hash=generate_password_hash(random_pass),
+            role='client',
+            is_confirmed=True, # <--- FIX: They can now log in immediately after setting a password
+            password_reset_required=True,
+            tenant_id=tenant_id
+        )
+        db.session.add(user)
+        db.session.flush() # Get the user ID
         
-    # 1. Create the Shadow User
-    random_pass = str(uuid.uuid4())
-    user = User(
-        email=email,
-        password_hash=generate_password_hash(random_pass),
-        role='client',
-        is_confirmed=False, 
-        password_reset_required=True,
-        tenant_id=tenant_id
-    )
-    db.session.add(user)
-    db.session.flush() # Get the user ID
+    # 2. Guarantee a Profile exists for THIS tenant
+    profile = Profile.query.filter_by(user_id=user.id, tenant_id=tenant_id).first()
+    if not profile:
+        profile = Profile(
+            user_id=user.id,
+            full_name=full_name,
+            phone_number=phone_number,
+            address=address,
+            tenant_id=tenant_id
+        )
+        db.session.add(profile)
     
-    # 2. Create the Profile
-    profile = Profile(
-        user_id=user.id,
-        full_name=full_name,
-        phone_number=phone_number,
-        address=address,
-        tenant_id=tenant_id
-    )
-    db.session.add(profile)
-    
-    # 3. Generate Secure Password Setup Token
-    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-    token = serializer.dumps(user.email, salt=current_app.config.get('SECURITY_PASSWORD_SALT', 'my_precious_salt'))
-    
-    # The link they will click in the email (Make sure 'auth.reset_password' exists in your auth routes)
-    setup_url = url_for('auth.reset_password', token=token, _external=True)
-    
-    # 4. Send the Welcome Email
-    email_html = f"""
-    <h3>Hi {full_name},</h3>
-    <p>Your booking with Nieuwburg Blitz is confirmed!</p>
-    <p>We've created a secure dashboard for you to track your cleaner, view your service history, and manage your property.</p>
-    <p><a href="{setup_url}" style="display:inline-block;padding:10px 20px;background-color:#006ac6;color:white;text-decoration:none;border-radius:5px;">Click here to set your password and access your dashboard</a></p>
-    <p>Welcome to the Blitz family!</p>
-    """
-    
-    msg = Message(
-        subject="Welcome to Nieuwburg Blitz - Complete your setup!",
-        sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
-        recipients=[email],
-        html=email_html
-    )
-    
-    # Fire off the email in the background
-    app = current_app._get_current_object()
-    thr = Thread(target=send_async_email, args=[app, msg])
-    thr.start()
+    # Notice: We completely removed the email logic here!
     
     return user
 
-
 @bp.route('/public/book', methods=['POST'])
 def public_submit_booking():
-    """Receives public booking requests (Hardcoded to Tenant 1)"""
     data = request.get_json()
     if not data:
         return jsonify({"message": "No data provided."}), 400
 
     try:
-        MVP_TENANT_ID = 1
+        # SINGLE TENANT FIX: Grab the very first business account in the DB
+        tenant = Tenant.query.first()
+        active_tenant_id = tenant.id if tenant else 1
         
-        # --- USE THE NEW HELPER FUNCTION HERE ---
         user = get_or_create_guest_client(
             email=data.get('email'),
             full_name=data.get('full_name'),
             phone_number=data.get('phone_number'),
             address=data.get('address'),
-            tenant_id=MVP_TENANT_ID
+            tenant_id=active_tenant_id
         )
+
+        date_str = data.get('date', 'Unknown Date')
+        time_str = data.get('time', '08:00')
+        desc = f"Public Booking (Requested for {date_str} {time_str})"
 
         new_request = QuoteRequest(
             user_id=user.id,
@@ -2937,15 +2964,17 @@ def public_submit_booking():
             phone=data.get('phone_number'),
             address=data.get('address'),
             primary_service=data.get('service_name', 'General Clean'),
-            service_frequency=data.get('frequency', 'Bi-Weekly'),
+            service_frequency=data.get('frequency', 'Once-off'),
+            description=desc, 
             total_price=data.get('estimated_total', 0.0),
             status='Pending', 
-            tenant_id=MVP_TENANT_ID
+            tenant_id=active_tenant_id
         )
         db.session.add(new_request)
         db.session.commit()
         
-        return jsonify({"message": "Booking submitted successfully!"}), 201
+        # CRITICAL FIX: Return the Quote ID so the frontend can hand it to Paystack
+        return jsonify({"message": "Booking submitted successfully!", "quote_id": new_request.id}), 201
     except Exception as e:
         db.session.rollback()
         print(f"Error submitting public booking: {e}")

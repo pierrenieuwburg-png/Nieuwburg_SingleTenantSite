@@ -15,15 +15,18 @@ const ClientBookingModal = ({ isOpen, onClose, preselectedService, onSuccess }) 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // --- ADDED SUBMIT FRICTION HERE ---
+        if (!window.confirm("Are you ready to submit your request? No further edits can be made once submitted.")) return;
+
         setLoading(true);
         try {
-            // Updated to match Flask's exact expected keys
             await createBooking({
                 service_type: preselectedService, 
                 ...formData
             });
             alert("Booking request sent! We will confirm shortly.");
-            if (onSuccess) onSuccess(); // Refresh parent data safely
+            if (onSuccess) onSuccess(); 
             onClose();
         } catch (err) {
             alert(err.message);
@@ -32,11 +35,11 @@ const ClientBookingModal = ({ isOpen, onClose, preselectedService, onSuccess }) 
         }
     };
 
-    // Styling similar to your other modals
     const overlayStyle = {
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000
     };
+
     const modalStyle = {
         backgroundColor: 'white', padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '500px',
         boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
@@ -102,4 +105,5 @@ const ClientBookingModal = ({ isOpen, onClose, preselectedService, onSuccess }) 
         </div>
     );
 };
+
 export default ClientBookingModal;

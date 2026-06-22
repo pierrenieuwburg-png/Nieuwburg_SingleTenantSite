@@ -5,7 +5,6 @@ import ClientHeader from '../components/client/ClientHeader';
 import './ClientLayout.css';
 
 const ClientLayout = () => {
-  // State is now strictly for MOBILE menu toggling
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const toggleSidebar = () => {
@@ -14,15 +13,11 @@ const ClientLayout = () => {
 
   return (
     <div className="client-layout">
-      {/* Sidebar is always visible on desktop, toggles on mobile */}
       <ClientSidebar isOpen={isMobileMenuOpen} />
-
       <div className="client-main-content">
-        {/* Header needs toggle for mobile view */}
         <ClientHeader toggleSidebar={toggleSidebar} />
-        
         <div className="client-page-container">
-          <Outlet /> 
+          <Outlet />
         </div>
       </div>
     </div>

@@ -1,13 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { getMyQuotes, downloadQuotePdf, respondToQuote } from '../../services/clientApi';
-import { FaFileInvoice, FaCheck, FaTimes, FaDownload } from 'react-icons/fa';
+import { getMyQuotes, downloadQuotePdf, respondToQuote, deleteQuoteRequest } from '../../services/clientApi';
+import { FaFileInvoice, FaCheck, FaTimes, FaDownload, FaTrash, FaEye } from 'react-icons/fa';
 import { BarLoader } from 'react-spinners';
-import './ClientHome.css'; // Reusing styles
+import './ClientHome.css';
 
 const ClientQuotes = () => {
     const [quotes, setQuotes] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [actionLoading, setActionLoading] = useState(null); // ID of quote being processed
+    const [actionLoading, setActionLoading] = useState(null);
+
+    // Modal States
+    const [viewPdfUrl, setViewPdfUrl] = useState(null);
+    const [acceptingQuote, setAcceptingQuote] = useState(null);
+    const [finalNotes, setFinalNotes] = useState('');
 
     useEffect(() => {
         loadData();
@@ -24,6 +29,50 @@ const ClientQuotes = () => {
         }
     };
 
+    // --- Action: Withdraw Request ---
+    const handleDeleteRequest = async (reqId) => {
+        if(!window.confirm('Are you sure you want to withdraw this request? This cannot be undone.')) return;
+        
+        setActionLoading(`del-${reqId}`);
+        try {
+            await deleteQuoteRequest(reqId);
+            await loadData();
+        } catch (e) {
+            alert(e.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // --- Action: View Quote In-App ---
+    const handleViewInline = async (q) => {
+        setActionLoading(`view-${q.id}`);
+        try {
+            // Fetch the PDF securely via the API
+            const response = await fetch(`/client/api/quotes/${q.id}/download`, {
+                headers: { 
+                    'Accept': 'application/pdf',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                }
+            });
+            if (!response.ok) throw new Error("Failed to load PDF");
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            setViewPdfUrl(url);
+        } catch (e) {
+            alert("Could not load document for viewing.");
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Clean up Blob URL to prevent memory leaks when closing the viewer
+    const closePdfViewer = () => {
+        if (viewPdfUrl) URL.revokeObjectURL(viewPdfUrl);
+        setViewPdfUrl(null);
+    };
+
     const handleDownload = async (q) => {
         try {
             await downloadQuotePdf(q.id, q.display_id);
@@ -32,15 +81,67 @@ const ClientQuotes = () => {
         }
     };
 
-    const handleResponse = async (q, action) => {
-        if(!window.confirm(`Are you sure you want to ${action} this quote?`)) return;
-        
+    // --- Action: Reject Quote ---
+    const handleReject = async (q) => {
+        if(!window.confirm(`Are you sure you want to reject this quote?`)) return;
         setActionLoading(q.id);
         try {
-            await respondToQuote(q.id, action);
-            await loadData(); // Refresh list to see new status
+            await respondToQuote(q.id, 'reject');
+            await loadData();
         } catch (e) {
             alert(e.message);
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // --- Action: Accept Quote Flow ---
+    const handleFinalizeAcceptance = async (e) => {
+        e.preventDefault();
+        setActionLoading(acceptingQuote.id);
+        try {
+            // 1. Tell backend we accepted, and get the payment details back
+            const response = await respondToQuote(acceptingQuote.id, 'accept', { notes: finalNotes });
+            
+            setAcceptingQuote(null);
+            setFinalNotes('');
+            await loadData(); // Refreshes the UI to show 'Accepted'
+
+            // 2. Trigger Paystack directly with the response data
+            if (response.amount_to_pay > 0) {
+                const paymentType = response.is_deposit ? "Deposit" : "Full Payment";
+                
+                // Assuming you have the standard Paystack inline JS loaded
+                let handler = window.PaystackPop.setup({
+                    key: 'YOUR_PAYSTACK_PUBLIC_KEY', // Best to pull this from an env variable
+                    email: response.email,
+                    amount: response.amount_to_pay * 100, // Paystack expects cents
+                    currency: 'ZAR',
+                    ref: `QUOTE_${response.quote_id}_${Math.floor((Math.random() * 1000000000) + 1)}`, 
+                    metadata: {
+                        custom_fields: [
+                            {
+                                display_name: "Payment For",
+                                variable_name: "payment_for",
+                                value: `${paymentType} - Quote ${response.quote_number}`
+                            }
+                        ]
+                    },
+                    callback: function(paymentResponse) {
+                        // Payment successful!
+                        alert(`Payment complete! Reference: ${paymentResponse.reference}`);
+                        // Future: Ping your backend here to confirm the payment on the server
+                    },
+                    onClose: function() {
+                        alert('Transaction was not completed, window closed.');
+                    }
+                });
+                
+                handler.openIframe();
+            }
+
+        } catch (err) {
+            alert(err.message);
         } finally {
             setActionLoading(null);
         }
@@ -52,13 +153,13 @@ const ClientQuotes = () => {
         <div className="client-page-container" style={{ padding: '2rem' }}>
             <div className="page-header" style={{ marginBottom: '2rem' }}>
                 <h1>My Quotes & Requests</h1>
-                <p className="text-muted">View your requests and approve formal quotes.</p>
+                <p className="text-muted">Manage your outbound requests and inbound formal quotes.</p>
             </div>
 
             {quotes.length === 0 ? (
                 <div className="empty-state">
                     <FaFileInvoice size={48} color="#cbd5e1" />
-                    <p>No quotes found.</p>
+                    <p>No active quotes or requests.</p>
                 </div>
             ) : (
                 <div className="invoice-list-container">
@@ -66,15 +167,24 @@ const ClientQuotes = () => {
                         <div key={`${item.type}-${item.id}`} className="invoice-card" style={{
                             backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px',
                             marginBottom: '1rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem'
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem',
+                            borderLeft: item.type === 'request' ? '4px solid #94a3b8' : '4px solid #0ea5e9'
                         }}>
                             {/* Left Info */}
                             <div>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                     <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{item.display_id}</span>
                                     <span className={`status-pill ${item.status.toLowerCase().replace(' ', '-')}`}>{item.status}</span>
+                                    
+                                    <span style={{
+                                        fontSize: '0.75rem', padding: '2px 8px', borderRadius: '12px', 
+                                        backgroundColor: item.type === 'request' ? '#f1f5f9' : '#e0f2fe',
+                                        color: item.type === 'request' ? '#475569' : '#0369a1', fontWeight: 600
+                                    }}>
+                                        {item.type === 'request' ? 'Outbound Request' : 'Quote Received'}
+                                    </span>
                                 </div>
-                                <div style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '4px' }}>
+                                <div style={{ color: '#64748b', fontSize: '0.9rem', marginTop: '6px' }}>
                                     {item.service_title} • {item.date}
                                 </div>
                             </div>
@@ -85,44 +195,92 @@ const ClientQuotes = () => {
                                     <strong style={{ fontSize: '1.2rem', marginRight: '10px' }}>R {item.amount.toFixed(2)}</strong>
                                 )}
 
+                                {/* Formal Quote Actions */}
                                 {item.type === 'formal' && (
                                     <>
+                                        <button onClick={() => handleViewInline(item)} disabled={actionLoading === `view-${item.id}`} className="btn-icon" title="View Document" style={{
+                                            background: '#f1f5f9', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', color: '#334155'
+                                        }}>
+                                            {actionLoading === `view-${item.id}` ? <BarLoader color="#334155" width={16} /> : <FaEye />}
+                                        </button>
                                         <button onClick={() => handleDownload(item)} className="btn-icon" title="Download PDF" style={{
                                             background: '#f1f5f9', border: 'none', padding: '10px', borderRadius: '8px', cursor: 'pointer', color: '#334155'
                                         }}>
                                             <FaDownload />
                                         </button>
 
-                                        {/* Only show actions if Sent */}
                                         {item.status === 'Sent' && (
                                             <>
-                                                <button 
-                                                    onClick={() => handleResponse(item, 'accept')} 
-                                                    disabled={actionLoading === item.id}
-                                                    style={{
-                                                        background: '#dcfce7', color: '#166534', border: 'none', 
-                                                        padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center'
-                                                    }}
-                                                >
+                                                <button onClick={() => setAcceptingQuote(item)} disabled={actionLoading === item.id}
+                                                    style={{ background: '#dcfce7', color: '#166534', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
                                                     <FaCheck /> Accept
                                                 </button>
-                                                <button 
-                                                    onClick={() => handleResponse(item, 'reject')}
-                                                    disabled={actionLoading === item.id}
-                                                    style={{
-                                                        background: '#fee2e2', color: '#991b1b', border: 'none', 
-                                                        padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center'
-                                                    }}
-                                                >
+                                                <button onClick={() => handleReject(item)} disabled={actionLoading === item.id}
+                                                    style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
                                                     <FaTimes /> Reject
                                                 </button>
                                             </>
                                         )}
                                     </>
                                 )}
+
+                                {/* Request Actions */}
+                                {item.type === 'request' && item.status === 'Pending' && (
+                                    <button onClick={() => handleDeleteRequest(item.id)} disabled={actionLoading === `del-${item.id}`}
+                                        style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center' }}>
+                                        <FaTrash /> Withdraw
+                                    </button>
+                                )}
                             </div>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {/* --- MODAL: View PDF Inline --- */}
+            {viewPdfUrl && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.7)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '2rem' }}>
+                    <div style={{ background: 'white', borderRadius: '12px', width: '100%', maxWidth: '900px', height: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem 1.5rem', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                            <h3 style={{ margin: 0, color: '#0f172a' }}>Quote Viewer</h3>
+                            <button onClick={closePdfViewer} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', color: '#64748b' }}><FaTimes /></button>
+                        </div>
+                        <iframe src={viewPdfUrl} style={{ width: '100%', flex: 1, border: 'none' }} title="Document Viewer" />
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL: Finalize Acceptance --- */}
+            {acceptingQuote && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+                    <div style={{ background: 'white', padding: '2rem', borderRadius: '12px', width: '90%', maxWidth: '500px' }}>
+                        <h2 style={{ marginTop: 0, marginBottom: '1rem', color: '#0f172a' }}>Accept Quote {acceptingQuote.display_id}</h2>
+                        <p style={{ color: '#475569', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+                            You are about to accept this quote for <strong>R {acceptingQuote.amount.toFixed(2)}</strong>. This will secure your booking and prevent further modifications.
+                        </p>
+                        
+                        <form onSubmit={handleFinalizeAcceptance}>
+                            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+                                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 600, color: '#334155' }}>Any last-minute alterations or notes? (Optional)</label>
+                                <textarea 
+                                    rows="3"
+                                    placeholder="e.g., Please ensure arrival is exactly at 9 AM."
+                                    value={finalNotes}
+                                    onChange={(e) => setFinalNotes(e.target.value)}
+                                    className="form-input"
+                                    style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                                ></textarea>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                                <button type="button" onClick={() => setAcceptingQuote(null)} style={{
+                                    padding: '10px 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: 'white', cursor: 'pointer', fontWeight: 600, color: '#475569'
+                                }}>Cancel</button>
+                                <button type="submit" disabled={actionLoading !== null} style={{
+                                    padding: '10px 16px', borderRadius: '8px', border: 'none', background: '#16a34a', color: 'white', cursor: 'pointer', fontWeight: 600, display: 'flex', gap: '6px', alignItems: 'center'
+                                }}>{actionLoading ? <BarLoader color="#fff" width={50} height={4} /> : <><FaCheck /> Finalize & Pay</>}</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             )}
         </div>

@@ -164,6 +164,8 @@ class Quote(db.Model):
     total = db.Column(db.Float, default=0.0)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
     status = db.Column(db.String(20), nullable=False, default='Draft')
+    quote_request_id = db.Column(db.Integer, db.ForeignKey('quote_request.id'), nullable=True)
+    quote_request = db.relationship('QuoteRequest', backref=db.backref('quotes', lazy=True))
     acceptance_token = db.Column(db.String(100), unique=True, nullable=True)
     guest_name = db.Column(db.String(100))
     guest_email = db.Column(db.String(100))
@@ -258,6 +260,9 @@ class BusinessSettings(db.Model):
     business_address = db.Column(db.String(500), default="24 A 5, Parow Park, Balfour Street, Cape Town, 7500")
     registration_number = db.Column(db.String(100), default="2025/123456/07")
     default_terms = db.Column(db.Text, default="1. All payments are due within 30 days.\n2. ...")
+    require_deposit = db.Column(db.Boolean, default=True)
+    deposit_percentage = db.Column(db.Integer, default=75) # Up to 75%
+    large_job_threshold = db.Column(db.Float, default=2000.0)
     
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True, unique=True)
     tenant = db.relationship('Tenant', back_populates='business_settings')

@@ -61,6 +61,7 @@ def get_my_quotes():
         combined_data.append({
             "id": r.id, "type": "request", "display_id": f"REQ-{r.id}",
             "service_title": r.primary_service or "General Request",
+            "description": r.description,
             "date": r.request_date.strftime('%d %b %Y') if r.request_date else "N/A",
             "sort_date": r.request_date.isoformat() if r.request_date else "",
             "status": r.status, "amount": r.total_price or 0.0, "is_actionable": False
@@ -157,29 +158,65 @@ def respond_to_quote(quote_id):
     if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
 
     data = request.json
-    action = data.get('action') # 'accept' or 'reject'
+    action = data.get('action') 
+    notes = data.get('notes', '').strip()
     
     quote = Quote.query.filter_by(id=quote_id, user_id=current_user.id).first()
     if not quote:
         return jsonify({"message": "Quote not found"}), 404
 
-    # Allow clients to accept 'Sent' quotes.
     if quote.status not in ['Sent', 'Viewed']:
         return jsonify({"message": f"Cannot change status of a {quote.status} quote."}), 400
 
     if action == 'accept':
         quote.status = 'Accepted'
-        log_activity('Quote Accepted', f"Client {current_user.email} accepted Quote {quote.quote_number}", tenant_id=quote.tenant_id)
+        
+        # 1. Eliminate competing quotes for this request (Multi-Tenant Logic)
+        if quote.quote_request_id:
+            other_quotes = Quote.query.filter(
+                Quote.quote_request_id == quote.quote_request_id,
+                Quote.id != quote.id
+            ).all()
+            for oq in other_quotes:
+                oq.status = 'Rejected (Lost)'
+
+        # 2. Calculate the required payment (Deposit vs Full)
+        settings = BusinessSettings.query.filter_by(tenant_id=quote.tenant_id).first()
+        deposit_pct = settings.deposit_percentage if settings and settings.require_deposit else 100
+        threshold = settings.large_job_threshold if settings else 0
+        
+        amount_to_pay = quote.total
+        is_deposit = False
+        
+        # If total is higher than threshold, calculate deposit
+        if quote.total >= threshold and deposit_pct < 100:
+            amount_to_pay = quote.total * (deposit_pct / 100.0)
+            is_deposit = True
+
+        # 3. Log it
+        log_msg = f"Client {current_user.email} accepted Quote {quote.quote_number}."
+        if notes: log_msg += f" Client Notes: '{notes}'"
+        log_activity('Quote Accepted', log_msg, tenant_id=quote.tenant_id)
+        
+        db.session.commit()
+        
+        # Return the exact payment details to React to trigger Paystack directly
+        return jsonify({
+            "message": "Quote accepted. Proceeding to payment.", 
+            "quote_id": quote.id,
+            "quote_number": quote.quote_number,
+            "amount_to_pay": amount_to_pay,
+            "is_deposit": is_deposit,
+            "email": current_user.email
+        })
+
     elif action == 'reject':
         quote.status = 'Rejected'
         log_activity('Quote Rejected', f"Client {current_user.email} rejected Quote {quote.quote_number}", tenant_id=quote.tenant_id)
-    else:
-        return jsonify({"message": "Invalid action"}), 400
+        db.session.commit()
+        return jsonify({"message": "Quote rejected successfully"})
 
-    db.session.commit()
-    return jsonify({"message": f"Quote {action}ed successfully"})
-
-from datetime import datetime 
+    return jsonify({"message": "Invalid action"}), 400
 
 @bp.route('/api/bookings', methods=['POST'])
 @login_required
@@ -231,6 +268,57 @@ def create_booking():
         db.session.rollback()
         print(f"Error creating booking: {e}")
         return jsonify({"message": "Error processing request"}), 500
+    
+# --- REQUEST MANAGEMENT ROUTES ---
+
+@bp.route('/api/requests/<int:request_id>', methods=['DELETE'])
+@login_required
+def delete_quote_request(request_id):
+    if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
+    
+    # Ensure the request belongs to the current user
+    req = QuoteRequest.query.filter_by(id=request_id, user_id=current_user.id).first()
+    if not req:
+        return jsonify({"message": "Request not found"}), 404
+        
+    try:
+        db.session.delete(req)
+        db.session.commit()
+        log_activity('Request Deleted', f"Client {current_user.email} deleted Request REQ-{request_id}", tenant_id=req.tenant_id)
+        return jsonify({"message": "Request deleted successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting request: {e}")
+        return jsonify({"message": "Error deleting request"}), 500
+
+@bp.route('/api/requests/<int:request_id>', methods=['PUT'])
+@login_required
+def update_quote_request(request_id):
+    if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
+    
+    # Ensure the request belongs to the current user
+    req = QuoteRequest.query.filter_by(id=request_id, user_id=current_user.id).first()
+    if not req:
+        return jsonify({"message": "Request not found"}), 404
+        
+    # Prevent editing if it's already being processed
+    if req.status != 'Pending':
+        return jsonify({"message": "Cannot edit a request that is no longer pending."}), 400
+        
+    data = request.json
+    
+    try:
+        req.primary_service = data.get('primary_service', req.primary_service)
+        req.description = data.get('description', req.description)
+        # You can add other fields here if you expand the edit form (e.g. frequency)
+        
+        db.session.commit()
+        log_activity('Request Updated', f"Client {current_user.email} updated Request REQ-{request_id}", tenant_id=req.tenant_id)
+        return jsonify({"message": "Request updated successfully"}), 200
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error updating request: {e}")
+        return jsonify({"message": "Error updating request"}), 500
 
 @bp.route('/', defaults={'path': ''})
 @bp.route('/<path:path>')

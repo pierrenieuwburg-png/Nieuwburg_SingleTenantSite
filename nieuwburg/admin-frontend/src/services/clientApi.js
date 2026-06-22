@@ -132,13 +132,13 @@ export const downloadQuotePdf = async (quoteId, displayId) => {
     }
 };
 
-// 8. Accept/Reject Quote (The other missing function)
-export const respondToQuote = async (quoteId, action) => {
+// 8. Accept/Reject Quote
+export const respondToQuote = async (quoteId, action, additionalData = {}) => {
     try {
         const response = await fetch(`${API_BASE}/quotes/${quoteId}/respond`, {
             method: 'POST',
             headers: getHeaders(),
-            body: JSON.stringify({ action }) 
+            body: JSON.stringify({ action, ...additionalData }) 
         });
         
         const result = await response.json();
@@ -150,6 +150,42 @@ export const respondToQuote = async (quoteId, action) => {
     }
 };
 
+// 9. Delete a Quote Request
+export const deleteQuoteRequest = async (requestId) => {
+    try {
+        const response = await fetch(`${API_BASE}/requests/${requestId}`, {
+            method: 'DELETE',
+            headers: getHeaders(),
+        });
+        
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to delete request');
+        return result;
+    } catch (error) {
+        console.error("Client API Error:", error);
+        throw error;
+    }
+};
+
+// 10. Edit a Quote Request
+export const updateQuoteRequest = async (requestId, requestData) => {
+    try {
+        const response = await fetch(`${API_BASE}/requests/${requestId}`, {
+            method: 'PUT',
+            headers: getHeaders(),
+            body: JSON.stringify(requestData)
+        });
+        
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to update request');
+        return result;
+    } catch (error) {
+        console.error("Client API Error:", error);
+        throw error;
+    }
+};
+
+// 11. Create Booking
 export const createBooking = async (bookingData) => {
     try {
         const response = await fetch(`${API_BASE}/bookings`, {
@@ -166,3 +202,4 @@ export const createBooking = async (bookingData) => {
         throw error;
     }
 };
+

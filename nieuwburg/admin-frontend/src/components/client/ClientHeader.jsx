@@ -6,7 +6,6 @@ const ClientHeader = ({ toggleSidebar }) => {
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -19,27 +18,19 @@ const ClientHeader = ({ toggleSidebar }) => {
 
   return (
     <header className="client-top-header">
-      {/* 1. Left Side: Toggle + Logo */}
       <div className="header-brand-area">
         <Link to="/client/dashboard" className="header-logo-link">
             <img src="/static/img/LogoBlackWithTitle.png" alt="Nieuwburg Blitz" className="header-logo" />
         </Link>
       </div>
-
-      {/* 2. Spacer */}
+      
       <div className="header-spacer"></div>
-
-      {/* 3. Right Side: Profile */}
+      
       <div className="header-profile-container" ref={dropdownRef}>
-        <div 
-          className="profile-circle" 
-          onClick={() => setShowDropdown(!showDropdown)}
-        >
-          {/* Placeholder for user image */}
+        <div className="profile-circle" onClick={() => setShowDropdown(!showDropdown)}>
           <img src="/static/img/avatar_picture_profile_user_icon.png" alt="Profile" />
         </div>
-
-        {/* Dropdown Menu */}
+        
         {showDropdown && (
           <div className="profile-dropdown">
             <div className="dropdown-header">

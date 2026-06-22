@@ -4,47 +4,148 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <meta name="csrf-token" content="{{ csrf_token() }}">
-  <title>{% block title %}Admin{% endblock %} - Nieuwburg Blitz</title>
+  <title>{% block title %}App{% endblock %} - Nieuwburg Blitz</title>
+  
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='admin-assets/index.css') }}">
   <script src="https://cdn.tiny.cloud/1/1z73jx2kzcb4ys98fgz5g9y0npcli2yixbchybeswrm4z4af/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+
+  <style>
+    /* Mobile Sidebar Toggle Styles */
+    .mobile-header {
+      display: none;
+      background-color: #002244;
+      padding: 15px 20px;
+      color: white;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .sidebar-toggle-btn {
+      background: none;
+      border: none;
+      color: white;
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    @media (max-width: 768px) {
+      .mobile-header {
+        display: flex; /* Show header only on mobile */
+      }
+      
+      .admin-layout {
+        flex-direction: column;
+      }
+
+      .admin-sidebar {
+        transform: translateX(-100%);
+        transition: transform 0.3s ease-in-out;
+        position: fixed;
+        z-index: 9999;
+        height: 100vh;
+        width: 260px;
+        top: 0;
+        left: 0;
+      }
+
+      /* When the JS class is applied, slide the sidebar in */
+      .admin-sidebar.mobile-open {
+        transform: translateX(0);
+        box-shadow: 4px 0 15px rgba(0,0,0,0.3);
+      }
+      
+      .admin-main-content {
+        margin-left: 0 !important;
+        padding: 15px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+    }
+  </style>
 </head>
 <body class="admin-body">
+
+  <div class="mobile-header">
+    <div style="display: flex; align-items: center; gap: 15px;">
+        <button class="sidebar-toggle-btn" id="sidebar-toggle">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+        <span style="font-weight: bold; font-size: 1.2rem;">Nieuwburg Blitz</span>
+    </div>
+  </div>
+
   <div class="admin-layout">
-     <aside class="admin-sidebar">
+     <aside class="admin-sidebar" id="admin-sidebar">
        <div class="admin-brand">
         <img src="{{ url_for('static', filename='img/LogoBlackWithTitle.png') }}" alt="Nieuwburg Blitz Logo">
-        <span>Admin Panel</span>
+        <span>{{ 'Admin Panel' if current_user.role == 'admin' else 'Field App' }}</span>
       </div>
+      
       <nav class="admin-nav" id="admin-nav">
-        {# Keep sidebar links - React/Vue router will intercept these #}
-        <a href="{{ url_for('admin.admin_spa_shell', path='dashboard') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='dashboard') }}"><i class="fa-solid fa-chart-line fa-fw"></i>Dashboard</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='bookings') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='bookings') }}"><i class="fa-solid fa-calendar-check fa-fw"></i>Bookings</a>
-        <hr class="nav-divider">
-        <a href="{{ url_for('admin.admin_spa_shell', path='clients') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='clients') }}"><i class="fa-solid fa-users fa-fw"></i>Clients</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='staff') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='staff') }}"><i class="fa-solid fa-user-tie fa-fw"></i>Staff</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='applications') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='applications') }}"><i class="fa-solid fa-user-plus fa-fw"></i>Blitz Applications</a>
-        <hr class="nav-divider">
-        <a href="{{ url_for('admin.admin_spa_shell', path='quotes') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='quotes') }}"><i class="fa-solid fa-file-invoice fa-fw"></i>Quotes</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='invoices') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='invoices') }}"><i class="fa-solid fa-file-invoice-dollar fa-fw"></i>Invoices</a>
-        <hr class="nav-divider">
-        <a href="{{ url_for('admin.admin_spa_shell', path='services') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='services') }}"><i class="fa-solid fa-spray-can-sparkles fa-fw"></i>Services</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='blog') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='blog') }}"><i class="fa-solid fa-newspaper fa-fw"></i>Blog</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='activity-log') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='activity-log') }}"><i class="fa-solid fa-clipboard-list fa-fw"></i>Activity Log</a>
-        <a href="{{ url_for('admin.admin_spa_shell', path='settings') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='settings') }}"><i class="fa-solid fa-cogs fa-fw"></i>Business Settings</a>
+        
+        {% if current_user.role == 'admin' %}
+            {# --- ADMIN LINKS --- #}
+            <a href="{{ url_for('admin.admin_spa_shell', path='dashboard') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='dashboard') }}"><i class="fa-solid fa-chart-line fa-fw"></i>Dashboard</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='bookings') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='bookings') }}"><i class="fa-solid fa-calendar-check fa-fw"></i>Bookings</a>
+            <hr class="nav-divider">
+            <a href="{{ url_for('admin.admin_spa_shell', path='clients') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='clients') }}"><i class="fa-solid fa-users fa-fw"></i>Clients</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='staff') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='staff') }}"><i class="fa-solid fa-user-tie fa-fw"></i>Staff</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='applications') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='applications') }}"><i class="fa-solid fa-user-plus fa-fw"></i>Blitz Applications</a>
+            <hr class="nav-divider">
+            <a href="{{ url_for('admin.admin_spa_shell', path='quotes') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='quotes') }}"><i class="fa-solid fa-file-invoice fa-fw"></i>Quotes</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='invoices') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='invoices') }}"><i class="fa-solid fa-file-invoice-dollar fa-fw"></i>Invoices</a>
+            <hr class="nav-divider">
+            <a href="{{ url_for('admin.admin_spa_shell', path='services') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='services') }}"><i class="fa-solid fa-spray-can-sparkles fa-fw"></i>Services</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='blog') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='blog') }}"><i class="fa-solid fa-newspaper fa-fw"></i>Blog</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='activity-log') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='activity-log') }}"><i class="fa-solid fa-clipboard-list fa-fw"></i>Activity Log</a>
+            <a href="{{ url_for('admin.admin_spa_shell', path='settings') }}" class="admin-nav-link" data-target="{{ url_for('admin.admin_spa_shell', path='settings') }}"><i class="fa-solid fa-cogs fa-fw"></i>Business Settings</a>
+        
+        {% elif current_user.role == 'staff' %}
+            {# --- STAFF LINKS --- #}
+            <a href="{{ url_for('main.staff_dashboard') }}" class="admin-nav-link"><i class="fa-solid fa-calendar-check fa-fw"></i>My Schedule</a>
+        {% endif %}
+
       </nav>
+      
       <div class="admin-sidebar-footer">
         <a href="{{ url_for('auth.profile') }}" class="admin-nav-link"><i class="fa-solid fa-user-pen fa-fw"></i>Edit My Profile</a>
+        {% if current_user.role == 'admin' %}
         <a href="{{ url_for('main.index') }}" class="admin-nav-link"><i class="fa-solid fa-globe fa-fw"></i>View Public Site</a>
+        {% endif %}
         <a href="{{ url_for('auth.logout') }}" class="admin-nav-link"><i class="fa-solid fa-right-from-bracket fa-fw"></i>Logout</a>
       </div>
     </aside>
+    
     <main class="admin-main-content" id="admin-main-content">
       {# Root element for the JavaScript framework to mount onto #}
       <div id="admin-app-root"></div>
     </main>
   </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const toggleBtn = document.getElementById('sidebar-toggle');
+        const sidebar = document.getElementById('admin-sidebar');
+        
+        if(toggleBtn && sidebar) {
+            toggleBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                sidebar.classList.toggle('mobile-open');
+            });
+
+            // Close sidebar when clicking anywhere outside of it
+            document.addEventListener('click', function(e) {
+                if (sidebar.classList.contains('mobile-open') && !sidebar.contains(e.target) && e.target !== toggleBtn) {
+                    sidebar.classList.remove('mobile-open');
+                }
+            });
+        }
+    });
+  </script>
 
   <script type="module">
     import RefreshRuntime from 'http://localhost:5173/@react-refresh'
@@ -56,9 +157,6 @@
 
   <script type="module" src="http://localhost:5173/@vite/client"></script>
   <script type="module" src="http://localhost:5173/src/main.jsx"></script>
-
-  {# Remove the old dynamic loading script block #}
-  {# {% block scripts %} ... removed ... {% endblock %} #}
 
 </body>
 </html>

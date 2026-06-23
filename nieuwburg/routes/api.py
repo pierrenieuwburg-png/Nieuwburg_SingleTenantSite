@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app, flash, render_template, redirect, url_for, flash, Response
-from flask_login import current_user, login_required
-from sqlalchemy import or_, and_
+from flask_login import login_required, current_user
+from flask_socketio import join_room
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import flag_modified
 from itsdangerous import URLSafeTimedSerializer
@@ -19,8 +19,8 @@ from markupsafe import escape, Markup
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash
 from datetime import date, datetime, time, timedelta
-from .. import db
-from ..models import (Post, ServiceCategory, ServiceItem, Job, User, Profile, 
+from .. import db, socketio
+from ..models import (Post, LeadDispatch, ServiceCategory, ServiceItem, Job, User, Profile, 
                       QuoteRequest, Quote, StaffApplication, QuoteLineItem, 
                       ActivityLog, Invoice, BusinessSettings, ServiceClause, Tenant, InvoiceLineItem, JobTask, JobPhoto)
 
@@ -697,14 +697,13 @@ def api_create_quote():
     if not data.get('line_items'): return jsonify({"message": "At least one line item is required."}), 400
 
     try:
-        # TENANT AWARE: Get this tenant's settings
         settings = BusinessSettings.query.filter_by(tenant_id=current_user.tenant_id).first()
-        if not settings:
-             # Fallback if settings missing
+        if not settings: 
              settings = BusinessSettings(tenant_id=current_user.tenant_id) 
 
+        # 1. Create Quote directly as 'Pending'
         new_quote = Quote(
-            quote_number=get_next_quote_number(), # Note: This function also needs to be tenant-aware eventually
+            quote_number=get_next_quote_number(), 
             user_id=data.get('client_id'),
             guest_name=data.get('guest_name'),
             guest_email=data.get('email'),
@@ -715,7 +714,8 @@ def api_create_quote():
             discount_value=data.get('discount'),
             total=data.get('total'),
             
-            status='Draft',
+            # BYPASS DRAFT: Straight to pending!
+            status='Pending', 
             quote_date=date.today(),
             expiry_date=date.today() + timedelta(days=30),
             
@@ -723,7 +723,8 @@ def api_create_quote():
             registration_number=settings.registration_number,
             terms_and_conditions=settings.default_terms,
             
-            tenant_id=current_user.tenant_id # <--- TENANT AWARE
+            tenant_id=current_user.tenant_id,
+            quote_request_id=data.get('quote_request_id') # Link to the original request if provided
         )
         
         db.session.add(new_quote)
@@ -740,19 +741,61 @@ def api_create_quote():
             )
             db.session.add(line_item)
 
-        log_activity('Quote Created', f"Admin '{current_user.email}' created quote {new_quote.quote_number}.")
+        log_activity('Quote Sent', f"Admin '{current_user.email}' sent quote {new_quote.quote_number}.", tenant_id=current_user.tenant_id)
         db.session.commit()
         
+        # 2. Smart Email Routing Logic
+        recipient_email = new_quote.guest_email
+        target_user = None
+
+        if new_quote.user_id:
+            target_user = User.query.get(new_quote.user_id)
+            if target_user and target_user.email:
+                recipient_email = target_user.email
+        elif recipient_email:
+            # Check if this guest email actually belongs to an existing user
+            target_user = User.query.filter_by(email=recipient_email).first()
+
+        if recipient_email:
+            try:
+                # Generate the PDF attachment
+                pdf_data = render_template_to_pdf('public/quote_pdf_template.html', quote=new_quote)
+                pdf_filename = f"Quote_{new_quote.quote_number}.pdf"
+                
+                # Determine Registration Status to set the right Call to Action
+                needs_registration = True
+                if target_user and target_user.password_hash and target_user.is_confirmed:
+                    needs_registration = False
+
+                # Pass this flag to your email template so it can show the correct button/link
+                email_html = render_template(
+                    'email/quote_ready.html', 
+                    quote=new_quote, 
+                    needs_registration=needs_registration,
+                    login_url=url_for('auth.login', _external=True),
+                    register_url=url_for('auth.register', email=recipient_email, _external=True)
+                )
+                
+                send_email_with_attachment(
+                    subject=f"Your Quote from {settings.business_name} ({new_quote.quote_number})",
+                    recipients=[recipient_email],
+                    html_body=email_html,
+                    attachment_data=pdf_data,
+                    attachment_filename=pdf_filename,
+                    attachment_mimetype='application/pdf'
+                )
+            except Exception as email_err:
+                print(f"Quote created but failed to auto-send email: {email_err}")
+
         return jsonify({
-            "message": f"Quote {new_quote.quote_number} created successfully!",
+            "message": f"Quote {new_quote.quote_number} generated and sent to client!",
             "quote_id": new_quote.id
         }), 201
 
     except Exception as e:
         db.session.rollback()
         print(f"Error creating quote: {e}")
-        traceback.print_exc()
-        return jsonify({"message": f"An internal server error occurred: {str(e)}"}), 500
+        return jsonify({"message": f"An internal server error occurred."}), 500
     
 @bp.route('/admin/quotes/<int:quote_id>/convert-to-invoice', methods=['POST'])
 @login_required
@@ -3137,3 +3180,69 @@ def complete_job_report(job_id):
 
     db.session.commit()
     return jsonify({"message": "Job successfully completed!"}), 200
+
+# 1. Connected Provider Room Setup
+@socketio.on('join_tenant_room')
+def handle_join_tenant_room(data):
+    """When a provider logs onto their admin panel, they join their real-time listener room."""
+    tenant_id = data.get('tenant_id')
+    if tenant_id:
+        join_room(f"tenant_{tenant_id}")
+        print(f"Tenant room connection established for room: tenant_{tenant_id}")
+
+# 2. Atomic Endpoint for Claiming the Lead
+@bp.route('/admin/leads/<int:dispatch_id>/accept', methods=['POST'])
+@login_required
+def accept_lead(dispatch_id):
+    """Enforces strict transactional safety using row locks when claiming a marketplace lead."""
+    if not current_user.is_authenticated or current_user.role != 'admin':
+        return jsonify({"message": "Permission denied"}), 403
+
+    # with_for_update() locks this specific row until our database transaction completes
+    dispatch = LeadDispatch.query.with_for_update().filter_by(
+        id=dispatch_id, 
+        tenant_id=current_user.tenant_id
+    ).first()
+    
+    if not dispatch:
+        return jsonify({"message": "Lead assignment window not found."}), 404
+        
+    if dispatch.status != 'pending' or datetime.utcnow() > dispatch.expires_at:
+        return jsonify({"message": "Too slow! Lead request window has expired."}), 400
+
+    # Safety confirmation: Check if any other provider already successfully claimed this QuoteRequest
+    existing_winner = LeadDispatch.query.filter_by(quote_request_id=dispatch.quote_request_id, status='won').first()
+    if existing_winner:
+        dispatch.status = 'lost'
+        db.session.commit()
+        return jsonify({"message": "Another provider claimed this job first!"}), 400
+
+    # Mark this provider as the official winner
+    dispatch.status = 'won'
+    
+    # Batch update remaining active dispatches for this request to 'lost'
+    db.session.query(LeadDispatch).filter(
+        LeadDispatch.quote_request_id == dispatch.quote_request_id,
+        LeadDispatch.id != dispatch.id
+    ).update({"status": "lost"})
+    
+    # Assign the floating marketplace quote to the winning Tenant's workspace
+    quote_request = QuoteRequest.query.get(dispatch.quote_request_id)
+    quote_request.tenant_id = current_user.tenant_id
+    quote_request.status = 'Matched'
+    
+    log_activity('Lead Claimed', f"Admin secured marketplace lead #{quote_request.id}.", tenant_id=current_user.tenant_id)
+    db.session.commit()
+
+    return jsonify({"message": "Job secured successfully!"}), 200
+
+@bp.route('/api/user/me', methods=['GET'])
+@login_required
+def get_current_user_info():
+    """Returns basic session context so the React frontend knows who is logged in."""
+    return jsonify({
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role,
+        "tenant_id": getattr(current_user, 'tenant_id', None)
+    }), 200

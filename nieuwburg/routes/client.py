@@ -1,7 +1,8 @@
 from flask import Blueprint, jsonify, request, render_template, Response, current_app
 from flask_login import login_required, current_user
+from .utils import dispatch_lead_to_providers
 from sqlalchemy.orm import joinedload
-from ..models import QuoteRequest, Quote, Invoice, Job, Profile
+from ..models import QuoteRequest, Quote, Invoice, Job, Profile, BusinessSettings
 from .. import db
 from datetime import datetime
 import os
@@ -53,10 +54,14 @@ def get_client_dashboard():
 @login_required
 def get_my_quotes():
     if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
-    requests = QuoteRequest.query.filter_by(user_id=current_user.id).order_by(QuoteRequest.request_date.desc()).all()
-    formal_quotes = Quote.query.filter_by(user_id=current_user.id).order_by(Quote.quote_date.desc()).all()
-    combined_data = []
     
+    # Get all client requests
+    requests = QuoteRequest.query.filter_by(user_id=current_user.id).order_by(QuoteRequest.request_date.desc()).all()
+    
+    # Get all client quotes. Since we killed 'Draft', we just grab everything linked to them.
+    formal_quotes = Quote.query.filter_by(user_id=current_user.id).order_by(Quote.quote_date.desc()).all()
+    
+    combined_data = []
     for r in requests:
         combined_data.append({
             "id": r.id, "type": "request", "display_id": f"REQ-{r.id}",
@@ -72,8 +77,10 @@ def get_my_quotes():
             "service_title": "Formal Quote",
             "date": q.quote_date.strftime('%d %b %Y') if q.quote_date else "N/A",
             "sort_date": q.quote_date.strftime('%Y-%m-%d') if q.quote_date else "",
-            "status": q.status, "amount": q.total, "is_actionable": q.status == 'Sent'
+            "status": q.status, "amount": q.total, 
+            "is_actionable": q.status == 'Pending' # Now looks for Pending!
         })
+        
     combined_data.sort(key=lambda x: x['sort_date'], reverse=True)
     return jsonify(combined_data)
 
@@ -165,14 +172,20 @@ def respond_to_quote(quote_id):
     if not quote:
         return jsonify({"message": "Quote not found"}), 404
 
-    if quote.status not in ['Sent', 'Viewed']:
+    # Target the new 'Pending' status (or Viewed if they opened it)
+    if quote.status not in ['Pending', 'Viewed']:
         return jsonify({"message": f"Cannot change status of a {quote.status} quote."}), 400
 
     if action == 'accept':
         quote.status = 'Accepted'
         
-        # 1. Eliminate competing quotes for this request (Multi-Tenant Logic)
+        # 1. Close the original Request so no other providers quote on it
         if quote.quote_request_id:
+            quote_req = QuoteRequest.query.get(quote.quote_request_id)
+            if quote_req:
+                quote_req.status = 'Closed'
+            
+            # Eliminate competing quotes for this request (Multi-Tenant readiness)
             other_quotes = Quote.query.filter(
                 Quote.quote_request_id == quote.quote_request_id,
                 Quote.id != quote.id
@@ -180,27 +193,24 @@ def respond_to_quote(quote_id):
             for oq in other_quotes:
                 oq.status = 'Rejected (Lost)'
 
-        # 2. Calculate the required payment (Deposit vs Full)
+        # 2. Deposit/Payment Calculation
         settings = BusinessSettings.query.filter_by(tenant_id=quote.tenant_id).first()
         deposit_pct = settings.deposit_percentage if settings and settings.require_deposit else 100
         threshold = settings.large_job_threshold if settings else 0
         
         amount_to_pay = quote.total
         is_deposit = False
-        
-        # If total is higher than threshold, calculate deposit
         if quote.total >= threshold and deposit_pct < 100:
             amount_to_pay = quote.total * (deposit_pct / 100.0)
             is_deposit = True
 
-        # 3. Log it
         log_msg = f"Client {current_user.email} accepted Quote {quote.quote_number}."
         if notes: log_msg += f" Client Notes: '{notes}'"
         log_activity('Quote Accepted', log_msg, tenant_id=quote.tenant_id)
         
         db.session.commit()
         
-        # Return the exact payment details to React to trigger Paystack directly
+        # Send data back to trigger Paystack directly, without generating an Invoice
         return jsonify({
             "message": "Quote accepted. Proceeding to payment.", 
             "quote_id": quote.id,
@@ -267,6 +277,85 @@ def create_booking():
     except Exception as e:
         db.session.rollback()
         print(f"Error creating booking: {e}")
+        return jsonify({"message": "Error processing request"}), 500
+    
+import uuid
+import json
+import os
+from werkzeug.utils import secure_filename
+from datetime import datetime
+# Ensure you have 'current_app' imported from flask at the top of the file
+
+@bp.route('/api/requests/custom', methods=['POST'])
+@login_required
+def create_custom_request():
+    if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
+    
+    # Retrieve form data
+    service_type = request.form.get('service_type', 'Custom Service')
+    property_type = request.form.get('property_type', 'Residential')
+    urgency = request.form.get('urgency', 'Flexible')
+    budget = request.form.get('budget', 0)
+    description = request.form.get('description', '')
+
+    # 1. Handle Photo Uploads
+    uploaded_photos = request.files.getlist('photos')
+    saved_filenames = []
+    
+    if uploaded_photos:
+        os.makedirs(os.path.join(current_app.config['UPLOAD_FOLDER'], 'requests'), exist_ok=True)
+        for file in uploaded_photos:
+            if file and file.filename != '':
+                filename = secure_filename(file.filename)
+                unique_filename = f"req_{current_user.id}_{uuid.uuid4().hex[:8]}_{filename}"
+                upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'requests', unique_filename)
+                
+                try:
+                    file.save(upload_path)
+                    saved_filenames.append(f"requests/{unique_filename}")
+                except Exception as e:
+                    print(f"Error saving photo: {e}")
+
+    try:
+        # Get profiles to assign proper tenant context
+        business_profile = next((p for p in current_user.profiles if p.tenant_id is not None), None)
+        tenant_id = business_profile.tenant_id if business_profile else None
+        personal_profile = next((p for p in current_user.profiles if p.tenant_id is None), None)
+
+        # 2. Compile description block for the Admin Panel
+        formatted_budget = f"R {int(budget):,}" if int(budget) > 0 else "Unsure"
+        full_desc = f"Urgency: {urgency}\nBudget Estimate: {formatted_budget}\n\nClient Notes:\n{description}"
+
+        # 3. Create the Database Record
+        new_req = QuoteRequest(
+            user_id=current_user.id,
+            tenant_id=tenant_id,
+            primary_service=service_type,
+            property_type=property_type,
+            service_frequency='Once-off',
+            description=full_desc,
+            request_date=datetime.utcnow(),
+            status='Pending',
+            name=personal_profile.full_name if personal_profile else current_user.email,
+            email=current_user.email,
+            phone=personal_profile.phone_number if personal_profile else None,
+            address=personal_profile.address if personal_profile else None,
+            service_details=json.dumps({"photos": saved_filenames}) 
+        )
+
+        db.session.add(new_req)
+        db.session.commit()
+
+        log_activity('New Custom Request', f"Client {current_user.email} submitted a custom quote request for {service_type}", tenant_id=tenant_id)
+
+        # TRIGGER THE DISTANCE & WEBSOCKET ENGINE
+        dispatch_lead_to_providers(new_req)
+
+        return jsonify({"message": "Custom request submitted successfully"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating custom request: {e}")
         return jsonify({"message": "Error processing request"}), 500
     
 # --- REQUEST MANAGEMENT ROUTES ---

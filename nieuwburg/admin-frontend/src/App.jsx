@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route } from 'react-router-dom';
 
 // Admin Components
@@ -31,6 +31,9 @@ import StaffJobExecution from './pages/StaffJobExecution';
 import ClientLayout from './layouts/ClientLayout';
 import ClientHome from './pages/client/ClientHome';
 
+// --- MARKETPLACE IMPORT ---
+import ProviderDispatchModal from './components/ProviderDispatchModal';
+
 // Placeholder for future client pages (Bookings, Profile, etc.)
 const Placeholder = ({ title }) => (
   <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
@@ -43,13 +46,37 @@ const Placeholder = ({ title }) => (
 const NotFound = () => <div style={{ padding: '2rem' }}><h2>Page Not Found</h2></div>;
 
 function App() {
+  const [currentTenantId, setCurrentTenantId] = useState(null);
+
+  // Fetch the current user/tenant context when the app loads
+  useEffect(() => {
+    const fetchUserContext = async () => {
+      try {
+        // We will hit a lightweight endpoint to grab the tenant ID
+        const res = await fetch('/api/user/me'); 
+        if (res.ok) {
+          const userData = await res.json();
+          // Only set the tenant ID if the user is a logged-in admin/provider
+          if (userData.role === 'admin' && userData.tenant_id) {
+            setCurrentTenantId(userData.tenant_id); 
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load user context for marketplace routing", err);
+      }
+    };
+    fetchUserContext();
+  }, []);
+
   return (
     <>
       {/* GLOBAL COMPONENTS: 
-        This toast sits outside the router so it can slide in over ANY page 
-        if the ?booking_success=true URL parameters are present.
+        These sit outside the router so they can slide in over ANY page.
       */}
       <GuestSuccessToast />
+      
+      {/* 🚨 THE UBER-STYLE DISPATCH ENGINE NOTIFICATION 🚨 */}
+      {currentTenantId && <ProviderDispatchModal tenantId={currentTenantId} />}
 
       <Routes>
         {/* =========================================
@@ -107,4 +134,4 @@ function App() {
   );
 }
 
-export default App;;
+export default App;

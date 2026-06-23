@@ -127,6 +127,32 @@ class Profile(db.Model):
 
 # --- BUSINESS LOGIC MODELS ---
 
+# --- 3. NEW MODEL: The Lead Dispatch Table (The Marketplace Engine) ---
+class LeadDispatch(db.Model):
+    """
+    Tracks which leads have been broadcasted to which tenants. 
+    Crucial for managing the 60-second countdown and preventing double-booking.
+    """
+    __tablename__ = 'lead_dispatch'
+    id = db.Column(db.Integer, primary_key=True)
+    
+    quote_request_id = db.Column(db.Integer, db.ForeignKey('quote_request.id'), nullable=False)
+    tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=False)
+    
+    # Statuses: 'pending' (timer ticking), 'won' (they clicked accept first), 'lost' (someone else got it), 'ignored' (timer ran out)
+    status = db.Column(db.String(20), default='pending', nullable=False) 
+    
+    dispatched_at = db.Column(db.DateTime, default=datetime.utcnow)
+    expires_at = db.Column(db.DateTime, nullable=False) # Calculated as dispatched_at + 60 seconds
+
+    quote_request = db.relationship('QuoteRequest', backref=db.backref('dispatches', lazy=True))
+    tenant = db.relationship('Tenant', backref=db.backref('lead_dispatches', lazy=True))
+    
+    # Enforce uniqueness: A tenant can only receive a specific lead once
+    __table_args__ = (
+        db.UniqueConstraint('quote_request_id', 'tenant_id', name='_lead_tenant_uc'),
+    )
+
 class QuoteRequest(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     property_type = db.Column(db.String(50), nullable=True) 
@@ -147,11 +173,16 @@ class QuoteRequest(db.Model):
 
     request_date = db.Column(db.DateTime, default=datetime.utcnow) 
     status = db.Column(db.String(50), default='Pending') 
-
     job = db.relationship('Job', back_populates='quote_request', uselist=False)
 
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
     tenant = db.relationship('Tenant', back_populates='quote_requests')
+
+    # NEW: Where is the job located?
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    # Instead of linking to just ONE tenant, this is now a floating lead in the marketplace
+    # tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True) <-- REMOVE or ignore for marketplace leads
 
 class Quote(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -266,6 +297,11 @@ class BusinessSettings(db.Model):
     
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True, unique=True)
     tenant = db.relationship('Tenant', back_populates='business_settings')
+    # NEW: Geolocation & Dispatch constraints
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
+    service_radius_km = db.Column(db.Float, default=25.0) # How far are they willing to travel?
+    is_accepting_leads = db.Column(db.Boolean, default=True) # The "Online/Offline" driver toggle
     
     @staticmethod
     def get_settings():

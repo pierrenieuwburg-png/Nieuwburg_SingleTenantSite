@@ -1,4 +1,5 @@
 import os
+from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
@@ -26,6 +27,9 @@ limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"]
 )
+
+# --- ADDED: Initialize SocketIO globally here ---
+socketio = SocketIO()
 
 # --- ADDED: Timezone conversion filter ---
 def to_sast(utc_dt):
@@ -73,6 +77,9 @@ def create_app(config_class=Config):
     oauth.init_app(app)
     limiter.init_app(app)
     Session(app)
+
+    # --- ADDED: Bind SocketIO to the app here ---
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='gevent')
 
     # User loader function for Flask-Login
     from .models import User

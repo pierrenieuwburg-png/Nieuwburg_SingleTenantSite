@@ -1,7 +1,10 @@
 import json
 import re
 from datetime import date, timedelta
-from flask import current_app
+from math import radians, cos, sin, asin, sqrt
+from .. import db, socketio
+from ..models import BusinessSettings, LeadDispatch
+from flask import current_app, render_template
 from flask_mail import Message
 from threading import Thread
 import time
@@ -10,7 +13,6 @@ from .. import db, mail
 from ..models import ActivityLog, Quote, Invoice, Job, QuoteRequest, InvoiceLineItem, User
 from flask_login import current_user
 from markupsafe import Markup, escape
-from flask import render_template
 from io import BytesIO
 from xhtml2pdf import pisa
 
@@ -167,3 +169,42 @@ def send_email_with_attachment(subject, recipients, html_body,
     thr = Thread(target=send_async_email, args=[app, msg])
     thr.start()
     print(f"--- [Email Main] --- Queued email with attachment for {recipients}")
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """Calculates distance between two GPS coordinates in kilometers."""
+    if not all([lat1, lon1, lat2, lon2]): 
+        return 9999
+    
+    lon1, lat1, lon2, lat2 = map(radians, [lon1, lat1, lon2, lat2])
+    a = sin((lat2 - lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1)/2)**2
+    return 2 * asin(sqrt(a)) * 6371
+
+def dispatch_lead_to_providers(quote_request):
+    """Finds providers in the radius and triggers their 60-second countdowns."""
+    active_providers = BusinessSettings.query.filter_by(is_accepting_leads=True).all()
+    
+    for provider in active_providers:
+        distance = haversine_distance(
+            quote_request.latitude, quote_request.longitude,
+            provider.latitude, provider.longitude
+        )
+        
+        if distance <= (provider.service_radius_km or 25.0):
+            
+            dispatch = LeadDispatch(
+                quote_request_id=quote_request.id,
+                tenant_id=provider.tenant_id,
+                expires_at=datetime.utcnow() + timedelta(seconds=60)
+            )
+            db.session.add(dispatch)
+            db.session.flush()
+            
+            socketio.emit('incoming_lead', {
+                'dispatch_id': dispatch.id,
+                'service': quote_request.primary_service,
+                'description': quote_request.description,
+                'distance_km': round(distance, 1),
+                'expires_in_seconds': 60
+            }, room=f"tenant_{provider.tenant_id}")
+            
+    db.session.commit()

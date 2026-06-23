@@ -203,3 +203,27 @@ export const createBooking = async (bookingData) => {
     }
 };
 
+// 12. Create Custom Request (Handles Photo Uploads via FormData)
+export const createCustomRequest = async (formData) => {
+    try {
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        
+        // Note: We deliberately OMIT the 'Content-Type' header here. 
+        // The browser will automatically set it to 'multipart/form-data' with the correct boundary.
+        const response = await fetch(`${API_BASE}/requests/custom`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        });
+        
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.message || 'Failed to submit request');
+        return result;
+    } catch (error) {
+        console.error("Client API Error:", error);
+        throw error;
+    }
+};

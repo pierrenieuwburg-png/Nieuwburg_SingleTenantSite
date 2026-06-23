@@ -8,7 +8,10 @@ import {
 
 import './ClientHome.css';
 import { useNavigate } from 'react-router-dom';
+
+// --- MODAL IMPORTS ---
 import ClientBookingModal from '../../components/ClientBookingModal';
+import CustomRequestModal from '../../components/client/CustomRequestModal';
 
 const ClientHome = () => {
     const navigate = useNavigate();
@@ -17,14 +20,19 @@ const ClientHome = () => {
     const [stats, setStats] = useState({});
     const [upcomingJob, setUpcomingJob] = useState(null);
     const [bookingHistory, setBookingHistory] = useState([]);
+    
+    // --- MODAL STATES ---
     const [bookingModal, setBookingModal] = useState({ open: false, service: '' });
+    const [customRequestModal, setCustomRequestModal] = useState({ open: false, category: '' });
     
     // Rating & Tipping State
     const [rating, setRating] = useState(0);
     const [hoverRating, setHoverRating] = useState(0);
     const [tipAmount, setTipAmount] = useState(0);
 
+    // --- ROUTING HANDLERS ---
     const openBooking = (service) => setBookingModal({ open: true, service });
+    const openCustomRequest = (category) => setCustomRequestModal({ open: true, category });
 
     useEffect(() => {
         const fetchData = async () => {
@@ -110,6 +118,7 @@ const ClientHome = () => {
             <section className="service-dock-section">
                 <h2 className="section-heading">Start a new request</h2>
                 <div className="service-dock">
+                    {/* STANDARD BOOKING TRIGGERS */}
                     <button className="service-card" onClick={() => openBooking('Cleaning')}>
                         <div className="icon-box clean"><FaBroom /></div>
                         <span>Cleaning</span>
@@ -118,11 +127,13 @@ const ClientHome = () => {
                         <div className="icon-box garden"><FaTree /></div>
                         <span>Gardening</span>
                     </button>
-                    <button className="service-card" onClick={() => openBooking('Maintenance')}>
+                    
+                    {/* MARKETPLACE LIVE-LEAD TRIGGERS */}
+                    <button className="service-card" onClick={() => openCustomRequest('Maintenance')}>
                         <div className="icon-box fix"><FaTools /></div>
                         <span>Maintenance</span>
                     </button>
-                    <button className="service-card new" onClick={() => openBooking('Other')}>
+                    <button className="service-card new" onClick={() => openCustomRequest('Other')}>
                         <div className="icon-box add"><FaPlus /></div>
                         <span>Other</span>
                     </button>
@@ -307,10 +318,18 @@ const ClientHome = () => {
                         </div>
                     </div>
 
+                    {/* THE STANDARD BOOKING MODAL (Cart Method) */}
                     <ClientBookingModal 
                         isOpen={bookingModal.open} 
                         onClose={() => setBookingModal({ open: false, service: '' })}
                         preselectedService={bookingModal.service}
+                    />
+
+                    {/* THE NEW LIVE DISPATCH MODAL (Uber Method) */}
+                    <CustomRequestModal 
+                        isOpen={customRequestModal.open} 
+                        onClose={() => setCustomRequestModal({ open: false, category: '' })} 
+                        selectedCategory={customRequestModal.category}
                     />
                     
                 </div>

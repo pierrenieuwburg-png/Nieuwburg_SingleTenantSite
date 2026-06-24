@@ -127,30 +127,30 @@ class Profile(db.Model):
 
 # --- BUSINESS LOGIC MODELS ---
 
-# --- 3. NEW MODEL: The Lead Dispatch Table (The Marketplace Engine) ---
 class LeadDispatch(db.Model):
     """
-    Tracks which leads have been broadcasted to which tenants. 
+    Tracks which Quick Book jobs have been broadcasted to which tenants. 
     Crucial for managing the 60-second countdown and preventing double-booking.
     """
     __tablename__ = 'lead_dispatch'
     id = db.Column(db.Integer, primary_key=True)
     
-    quote_request_id = db.Column(db.Integer, db.ForeignKey('quote_request.id'), nullable=False)
+    # --- CHANGED: Now links to a guaranteed Job, not a QuoteRequest ---
+    job_id = db.Column(db.Integer, db.ForeignKey('job.id'), nullable=False)
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=False)
     
-    # Statuses: 'pending' (timer ticking), 'won' (they clicked accept first), 'lost' (someone else got it), 'ignored' (timer ran out)
+    # Statuses: 'pending', 'won', 'lost', 'ignored'
     status = db.Column(db.String(20), default='pending', nullable=False) 
     
     dispatched_at = db.Column(db.DateTime, default=datetime.utcnow)
-    expires_at = db.Column(db.DateTime, nullable=False) # Calculated as dispatched_at + 60 seconds
+    expires_at = db.Column(db.DateTime, nullable=False) 
 
-    quote_request = db.relationship('QuoteRequest', backref=db.backref('dispatches', lazy=True))
+    # --- CHANGED: Relationship updated to point to Job ---
+    job = db.relationship('Job', backref=db.backref('dispatches', lazy=True))
     tenant = db.relationship('Tenant', backref=db.backref('lead_dispatches', lazy=True))
     
-    # Enforce uniqueness: A tenant can only receive a specific lead once
     __table_args__ = (
-        db.UniqueConstraint('quote_request_id', 'tenant_id', name='_lead_tenant_uc'),
+        db.UniqueConstraint('job_id', 'tenant_id', name='_lead_job_tenant_uc'),
     )
 
 class QuoteRequest(db.Model):
@@ -281,6 +281,9 @@ class Job(db.Model):
     
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
     tenant = db.relationship('Tenant', back_populates='jobs')
+
+    latitude = db.Column(db.Float, nullable=True)
+    longitude = db.Column(db.Float, nullable=True)
 
     tasks = db.relationship('JobTask', back_populates='job', lazy=True, cascade="all, delete-orphan")
     photos = db.relationship('JobPhoto', back_populates='job', lazy=True, cascade="all, delete-orphan")

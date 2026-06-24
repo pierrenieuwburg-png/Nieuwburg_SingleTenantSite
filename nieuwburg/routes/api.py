@@ -3194,47 +3194,57 @@ def handle_join_tenant_room(data):
 @bp.route('/admin/leads/<int:dispatch_id>/accept', methods=['POST'])
 @login_required
 def accept_lead(dispatch_id):
-    """Enforces strict transactional safety using row locks when claiming a marketplace lead."""
+    """Enforces strict transactional safety when claiming a Quick Book."""
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"message": "Permission denied"}), 403
 
-    # with_for_update() locks this specific row until our database transaction completes
+    # Lock the row to prevent race conditions
     dispatch = LeadDispatch.query.with_for_update().filter_by(
         id=dispatch_id, 
         tenant_id=current_user.tenant_id
     ).first()
     
     if not dispatch:
-        return jsonify({"message": "Lead assignment window not found."}), 404
+        return jsonify({"message": "Lead window not found."}), 404
         
     if dispatch.status != 'pending' or datetime.utcnow() > dispatch.expires_at:
         return jsonify({"message": "Too slow! Lead request window has expired."}), 400
 
-    # Safety confirmation: Check if any other provider already successfully claimed this QuoteRequest
-    existing_winner = LeadDispatch.query.filter_by(quote_request_id=dispatch.quote_request_id, status='won').first()
+    existing_winner = LeadDispatch.query.filter_by(job_id=dispatch.job_id, status='won').first()
     if existing_winner:
         dispatch.status = 'lost'
         db.session.commit()
         return jsonify({"message": "Another provider claimed this job first!"}), 400
 
-    # Mark this provider as the official winner
+    # 1. We have a winner!
     dispatch.status = 'won'
     
-    # Batch update remaining active dispatches for this request to 'lost'
+    # Batch update remaining active dispatches for this job to 'lost'
     db.session.query(LeadDispatch).filter(
-        LeadDispatch.quote_request_id == dispatch.quote_request_id,
+        LeadDispatch.job_id == dispatch.job_id,
         LeadDispatch.id != dispatch.id
     ).update({"status": "lost"})
     
-    # Assign the floating marketplace quote to the winning Tenant's workspace
-    quote_request = QuoteRequest.query.get(dispatch.quote_request_id)
-    quote_request.tenant_id = current_user.tenant_id
-    quote_request.status = 'Matched'
+    # 2. Lock the Job to this specific Provider
+    job = Job.query.get(dispatch.job_id)
+    job.tenant_id = current_user.tenant_id
+    job.status = 'Matched - Awaiting Payment' 
     
-    log_activity('Lead Claimed', f"Admin secured marketplace lead #{quote_request.id}.", tenant_id=current_user.tenant_id)
+    # Fetch provider info to show the client
+    provider_settings = BusinessSettings.query.filter_by(tenant_id=current_user.tenant_id).first()
+    provider_name = provider_settings.business_name if provider_settings else "A Verified Pro"
+    
+    # 3. PING THE CLIENT'S SCREEN! 
+    socketio.emit('pro_found', {
+        'job_id': job.id,
+        'provider_name': provider_name,
+        'message': f"Pro Found! {provider_name} has accepted your request."
+    }, room=f"client_job_{job.id}")
+    
+    log_activity('Quick Book Claimed', f"Admin secured Quick Book Job #{job.id}.", tenant_id=current_user.tenant_id)
     db.session.commit()
 
-    return jsonify({"message": "Job secured successfully!"}), 200
+    return jsonify({"message": "Job secured! Waiting for client to finalize payment."}), 200
 
 @bp.route('/api/user/me', methods=['GET'])
 @login_required

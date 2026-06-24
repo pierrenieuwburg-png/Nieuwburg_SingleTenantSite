@@ -179,30 +179,36 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     a = sin((lat2 - lat1)/2)**2 + cos(lat1) * cos(lat2) * sin((lon2 - lon1)/2)**2
     return 2 * asin(sqrt(a)) * 6371
 
-def dispatch_lead_to_providers(quote_request):
-    """Finds providers in the radius and triggers their 60-second countdowns."""
+def dispatch_live_job(job):
+    """Triggered when a client searches for a pro for a Quick Book job."""
     active_providers = BusinessSettings.query.filter_by(is_accepting_leads=True).all()
     
     for provider in active_providers:
+        # Calculate distance between the client's map pin and the provider's HQ
         distance = haversine_distance(
-            quote_request.latitude, quote_request.longitude,
+            job.latitude, job.longitude,
             provider.latitude, provider.longitude
         )
         
+        # Default to 25km if the provider hasn't set a radius
         if distance <= (provider.service_radius_km or 25.0):
             
+            # 1. Create the 60-second window tied to the JOB
             dispatch = LeadDispatch(
-                quote_request_id=quote_request.id,
+                job_id=job.id,
                 tenant_id=provider.tenant_id,
                 expires_at=datetime.utcnow() + timedelta(seconds=60)
             )
             db.session.add(dispatch)
-            db.session.flush()
+            db.session.flush() 
             
+            service_name = job.service.name if job.service else "Quick Book Service"
+            
+            # 2. THE BROADCAST to the provider's screen
             socketio.emit('incoming_lead', {
                 'dispatch_id': dispatch.id,
-                'service': quote_request.primary_service,
-                'description': quote_request.description,
+                'service': service_name,
+                'description': "Quick Book Request! Client is waiting for a match.",
                 'distance_km': round(distance, 1),
                 'expires_in_seconds': 60
             }, room=f"tenant_{provider.tenant_id}")

@@ -79,7 +79,7 @@ def create_app(config_class=Config):
     Session(app)
 
     # --- ADDED: Bind SocketIO to the app here ---
-    socketio.init_app(app, cors_allowed_origins="*", async_mode='gevent')
+    socketio.init_app(app, cors_allowed_origins="*")
 
     # User loader function for Flask-Login
     from .models import User
@@ -134,7 +134,8 @@ def create_app(config_class=Config):
 
         csrf.exempt(api_bp)
         csrf.exempt(market_bp)
-
+        db.create_all()
+        
     @app.after_request
     def add_security_headers(response):
         response.headers['X-Content-Type-Options'] = 'nosniff'
@@ -142,5 +143,5 @@ def create_app(config_class=Config):
         # Avoid setting 'Expires' manually unless you have a very specific legacy need.
         # The 'no-store' during debug is expected and okay for development.
         return response
-
+    
     return app

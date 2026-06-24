@@ -1,9 +1,9 @@
 from flask import Blueprint, jsonify, request, render_template, Response, current_app
 from flask_login import login_required, current_user
-from .utils import dispatch_lead_to_providers
 from sqlalchemy.orm import joinedload
 from ..models import QuoteRequest, Quote, Invoice, Job, Profile, BusinessSettings
 from .. import db
+from .utils import dispatch_live_job
 from datetime import datetime
 import os
 
@@ -234,57 +234,55 @@ def create_booking():
     if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
     
     data = request.json
-    service_type = data.get('service_type')
-    frequency = data.get('frequency')
-    notes = data.get('notes')
+    service_type = data.get('service_type') # Should now pass the ServiceItem ID or Name
     date_str = data.get('date')
     time_str = data.get('time')
+    notes = data.get('notes', '')
     
+    # Grab map coordinates
+    lat = data.get('latitude') 
+    lng = data.get('longitude')
+
     if not service_type or not date_str:
         return jsonify({"message": "Service and Date are required"}), 400
 
     try:
-        # Link to the user's associated tenant (Business-in-a-Box context)
-        # We look for a profile linked to a tenant. 
-        business_profile = next((p for p in current_user.profiles if p.tenant_id is not None), None)
-        tenant_id = business_profile.tenant_id if business_profile else None
-
-        # Use personal profile for contact details
-        personal_profile = next((p for p in current_user.profiles if p.tenant_id is None), None)
+        # Look up the actual ServiceItem to link to the Job
+        service_item = ServiceItem.query.filter_by(name=service_type).first()
         
-        new_req = QuoteRequest(
-            user_id=current_user.id,
-            tenant_id=tenant_id,
-            primary_service=service_type,
-            service_frequency=frequency,
-            description=f"{notes} (Requested for {date_str} {time_str})",
-            request_date=datetime.utcnow(),
-            status='Pending',
-            # Populate contact info from User/Profile
-            name=personal_profile.full_name if personal_profile else current_user.email,
-            email=current_user.email,
-            phone=personal_profile.phone_number if personal_profile else None,
-            address=personal_profile.address if personal_profile else None
+        # Create a Job with NO tenant yet (Status = Searching)
+        new_job = Job(
+            client_id=current_user.id,
+            tenant_id=None, # Remains None until a Pro accepts it!
+            service_id=service_item.id if service_item else None,
+            scheduled_date=datetime.strptime(date_str, "%Y-%m-%d").date(),
+            start_time=datetime.strptime(time_str, "%H:%M").time() if time_str else None,
+            status='Searching',
+            notes=f"{notes} (Awaiting Pro Match)",
+            latitude=lat,
+            longitude=lng 
         )
         
-        db.session.add(new_req)
+        db.session.add(new_job)
+        db.session.flush() # Get the new_job.id immediately
+        
+        log_activity('Searching for Pro', f"Client requested {service_type}. Engine searching...", user_id=current_user.id)
+        
+        # FIRE THE UBER ENGINE!
+        from .utils import dispatch_live_job
+        dispatch_live_job(new_job)
         db.session.commit()
         
-        log_activity('New Booking Request', f"Client {current_user.email} requested {service_type}", tenant_id=tenant_id)
-        
-        return jsonify({"message": "Booking request submitted successfully"}), 201
+        # Return the Job ID so React can listen to the specific 'client_job_{id}' room
+        return jsonify({
+            "message": "Searching for nearby pros...", 
+            "job_id": new_job.id
+        }), 201
         
     except Exception as e:
         db.session.rollback()
         print(f"Error creating booking: {e}")
         return jsonify({"message": "Error processing request"}), 500
-    
-import uuid
-import json
-import os
-from werkzeug.utils import secure_filename
-from datetime import datetime
-# Ensure you have 'current_app' imported from flask at the top of the file
 
 @bp.route('/api/requests/custom', methods=['POST'])
 @login_required
@@ -347,9 +345,6 @@ def create_custom_request():
         db.session.commit()
 
         log_activity('New Custom Request', f"Client {current_user.email} submitted a custom quote request for {service_type}", tenant_id=tenant_id)
-
-        # TRIGGER THE DISTANCE & WEBSOCKET ENGINE
-        dispatch_lead_to_providers(new_req)
 
         return jsonify({"message": "Custom request submitted successfully"}), 201
 

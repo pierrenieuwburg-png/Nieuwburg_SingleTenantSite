@@ -416,13 +416,14 @@ def request_quote():
         
     try:
         # Create the new record AND set the exact request date
-        new_request = QuoteRequest( 
+        new_request = QuoteRequest(
             name=name,
             email=email,
             phone=phone,
             subject=subject,
             description=description,
             status='Pending',
+            marketplace_status='floating',  # P0-2: public intake is an unclaimed marketplace lead (tenant_id stays NULL until claimed)
             request_date=datetime.utcnow()  # <-- FIX: Forces it to show up on the dashboard
         )
         

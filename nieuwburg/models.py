@@ -178,11 +178,16 @@ class QuoteRequest(db.Model):
     tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
     tenant = db.relationship('Tenant', back_populates='quote_requests')
 
+    # Marketplace lifecycle (P0-2). Replaces the old "tenant_id IS NULL == floating" overload.
+    #   'direct'   — tenant-scoped quote (normal CRM request)
+    #   'floating' — unclaimed marketplace lead
+    #   'claimed'  — a tenant has taken it (ownership now carried by tenant_id)
+    #   'closed'   — won / expired / cancelled
+    marketplace_status = db.Column(db.String(20), default='direct', nullable=False)
+
     # NEW: Where is the job located?
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
-    # Instead of linking to just ONE tenant, this is now a floating lead in the marketplace
-    # tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True) <-- REMOVE or ignore for marketplace leads
 
 class Quote(db.Model):
     id = db.Column(db.Integer, primary_key=True)

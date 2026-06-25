@@ -2,6 +2,7 @@ import os
 from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_mail import Mail
 from flask_wtf.csrf import CSRFProtect
@@ -19,6 +20,7 @@ load_dotenv()
 
 # Initialize extensions
 db = SQLAlchemy()
+migrate = Migrate()
 login_manager = LoginManager()
 mail = Mail()
 csrf = CSRFProtect()
@@ -70,6 +72,7 @@ def create_app(config_class=Config):
 
     # Initialize Flask extensions here
     db.init_app(app)
+    migrate.init_app(app, db, render_as_batch=True)
     login_manager.init_app(app)
     login_manager.login_view = 'auth.login' # Blueprint name 'auth', route 'login'
     mail.init_app(app)
@@ -134,7 +137,6 @@ def create_app(config_class=Config):
 
         csrf.exempt(api_bp)
         csrf.exempt(market_bp)
-        db.create_all()
         
     @app.after_request
     def add_security_headers(response):

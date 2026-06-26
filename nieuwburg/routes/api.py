@@ -3198,20 +3198,30 @@ def accept_lead(dispatch_id):
     if not current_user.is_authenticated or current_user.role != 'admin':
         return jsonify({"message": "Permission denied"}), 403
 
-    # Lock the row to prevent race conditions
-    dispatch = LeadDispatch.query.with_for_update().filter_by(
-        id=dispatch_id, 
+    # Fetch the dispatch row normally — it is per-tenant and uncontended.
+    # The contended resource is the Job (see job lock below), not this row.
+    dispatch = LeadDispatch.query.filter_by(
+        id=dispatch_id,
         tenant_id=current_user.tenant_id
     ).first()
-    
+
     if not dispatch:
         return jsonify({"message": "Lead window not found."}), 404
-        
+
     if dispatch.status != 'pending' or datetime.utcnow() > dispatch.expires_at:
         return jsonify({"message": "Too slow! Lead request window has expired."}), 400
 
-    existing_winner = LeadDispatch.query.filter_by(job_id=dispatch.job_id, status='won').first()
-    if existing_winner:
+    # Lock the contended resource — the JOB — for the duration of this txn.
+    # Two providers accepting *different* dispatch rows for the *same* job
+    # would otherwise lock different rows and never block each other; the
+    # winner check must run under the job lock to be race-free.
+    job = db.session.query(Job).filter_by(id=dispatch.job_id).with_for_update().first()
+    if job is None:
+        return jsonify({"message": "Job no longer exists."}), 404
+
+    # Race-free under the job lock: no other accept for this job can commit
+    # until this transaction releases the lock.
+    if job.tenant_id is not None or job.status != 'Searching':
         dispatch.status = 'lost'
         db.session.commit()
         return jsonify({"message": "Another provider claimed this job first!"}), 400
@@ -3225,8 +3235,7 @@ def accept_lead(dispatch_id):
         LeadDispatch.id != dispatch.id
     ).update({"status": "lost"})
     
-    # 2. Lock the Job to this specific Provider
-    job = Job.query.get(dispatch.job_id)
+    # 2. Lock the Job to this specific Provider (already fetched under lock above)
     job.tenant_id = current_user.tenant_id
     job.status = 'Matched - Awaiting Payment' 
     

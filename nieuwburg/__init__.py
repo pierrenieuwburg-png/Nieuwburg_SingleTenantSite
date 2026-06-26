@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()  # must run BEFORE config is imported (Config reads os.environ at import time)
 from flask_socketio import SocketIO
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
@@ -14,9 +16,6 @@ from config import Config
 from datetime import datetime
 import pytz
 from markupsafe import escape, Markup
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Initialize extensions
 db = SQLAlchemy()

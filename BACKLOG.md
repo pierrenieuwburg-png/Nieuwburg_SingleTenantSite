@@ -55,3 +55,19 @@ changes — treat them as starting points, not permanent addresses.
 - **Phase / priority:** **Phase 2 — note for P2-2.** The "Available Leads" board
   must query `marketplace_status='floating'` (not a `tenant_id` filter) to list
   unclaimed leads. Do not "fix" the dashboard counts to include floating rows.
+
+---
+
+## 4. [Tooling] venv `flask.exe` launcher points at a stale sibling venv
+
+- **Location:** `.venv/Scripts/flask.exe` in `nieuwburg-mvp`.
+- **Problem:** The `flask.exe` entry-point launcher has an embedded python path
+  pointing at a different, sibling venv (`...\Cleaning Division\Nieuwburg\.venv`),
+  which lacks this project's installed packages (e.g. `psycopg2`). Running
+  `flask db upgrade` directly fails with `ModuleNotFoundError`/`No such command
+  'db'` because the app import blows up under the wrong interpreter.
+- **Workaround:** Invoke Flask through the correct interpreter:
+  `.venv\Scripts\python.exe -m flask <cmd>` (e.g. `python -m flask db upgrade`).
+- **Phase / priority:** **Low.** Recreate the venv in-place so the launcher
+  shebangs resolve to this project's python; until then, always use
+  `python -m flask`.

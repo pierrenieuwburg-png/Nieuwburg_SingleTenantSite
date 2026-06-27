@@ -269,12 +269,30 @@ class InvoiceLineItem(db.Model):
     invoice = db.relationship('Invoice', back_populates='line_items')
 
 class Job(db.Model):
+    # --- Quick Book (Engine A) status lifecycle (P1-3) ---
+    # Single source of truth for the status strings; referenced by
+    # create_booking, dispatch_live_job, accept_lead, and the Paystack webhook.
+    #   Searching -> Matched - Awaiting Payment -> Paid & Scheduled
+    #   (+ 'Expired' from P1-4 once the no-acceptance sweep lands)
+    STATUS_SEARCHING = 'Searching'
+    STATUS_AWAITING_PAYMENT = 'Matched - Awaiting Payment'
+    STATUS_PAID_SCHEDULED = 'Paid & Scheduled'
+
     id = db.Column(db.Integer, primary_key=True)
     scheduled_date = db.Column(db.Date, nullable=False)
     start_time = db.Column(db.Time, nullable=True)
     end_time = db.Column(db.Time, nullable=True)
     status = db.Column(db.String(50), nullable=False, default='Scheduled')
     notes = db.Column(db.Text, nullable=True)
+    # Paystack reference for a Quick Book payment, set at payment-init so the
+    # webhook can locate THIS matched job. Uniqueness is declared as a NAMED
+    # constraint in __table_args__ below (stable up/down migrations); many NULLs
+    # are allowed on PG. Do not also set unique=True here — that double-defines it.
+    payment_reference = db.Column(db.String(120), nullable=True)
+
+    __table_args__ = (
+        db.UniqueConstraint('payment_reference', name='uq_job_payment_reference'),
+    )
     quote_request_id = db.Column(db.Integer, db.ForeignKey('quote_request.id'), nullable=True)
     quote_request = db.relationship('QuoteRequest', back_populates='job')
     assigned_staff = db.relationship('User', secondary=job_staff_association, lazy='subquery',

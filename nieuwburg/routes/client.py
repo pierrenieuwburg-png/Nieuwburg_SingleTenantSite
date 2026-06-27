@@ -1,4 +1,4 @@
-from flask import Blueprint, jsonify, request, render_template, Response, current_app
+from flask import Blueprint, jsonify, request, render_template, Response, current_app, url_for
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
 from ..models import QuoteRequest, Quote, Invoice, Job, Profile, BusinessSettings
@@ -6,6 +6,7 @@ from .. import db
 from .utils import dispatch_live_job
 from datetime import datetime
 import os
+import requests
 
 # --- NEW IMPORTS from utils (Ensure these exist in routes/utils.py) ---
 from .utils import render_template_to_pdf, log_activity
@@ -257,7 +258,7 @@ def create_booking():
             service_id=service_item.id if service_item else None,
             scheduled_date=datetime.strptime(date_str, "%Y-%m-%d").date(),
             start_time=datetime.strptime(time_str, "%H:%M").time() if time_str else None,
-            status='Searching',
+            status=Job.STATUS_SEARCHING,
             notes=f"{notes} (Awaiting Pro Match)",
             latitude=lat,
             longitude=lng 
@@ -283,6 +284,92 @@ def create_booking():
         db.session.rollback()
         print(f"Error creating booking: {e}")
         return jsonify({"message": "Error processing request"}), 500
+
+
+def resolve_price_for_job(job):
+    """Single seam: 'what does this Quick Book job cost, in ZAR?'
+
+    Pricing is master-admin-controlled and service-dependent (frequency-based,
+    one-off-flat, or one-off-with-inputs) — it is NOT decided here, and is NOT a
+    hard-coded rate or an assumed-frequency formula. The price is resolved from
+    pricing inputs carried ON THE JOB, which are populated once the master-admin
+    pricing catalog + frequency capture exist (see BACKLOG #7).
+
+    Until those inputs exist there is no usable price for any job, so this
+    returns None and the caller MUST refuse (charge nothing). Returns a positive
+    float amount in ZAR, or None if no usable price is available yet.
+    """
+    # TODO (BACKLOG #7): resolve from the master-admin pricing catalog using the
+    # job's service category + the frequency/inputs captured on the Job. No such
+    # inputs are stored on the Job yet, so no price is resolvable today — every
+    # job is currently unpriced and the payment-init endpoint refuses.
+    return None
+
+
+@bp.route('/api/jobs/<int:job_id>/initiate-payment', methods=['POST'])
+@login_required
+def initiate_quick_book_payment(job_id):
+    """Start a Paystack transaction for a matched Quick Book job and record the
+    reference ON the job so the webhook can locate it (P1-3). Refuses unless the
+    job is the caller's own, is awaiting payment, and has a usable price."""
+    if not check_client_access():
+        return jsonify({"message": "Unauthorized"}), 403
+
+    # Ownership: the job must belong to the logged-in client.
+    job = Job.query.filter_by(id=job_id, client_id=current_user.id).first()
+    if not job:
+        return jsonify({"message": "Job not found."}), 404
+
+    # State: only a matched-but-unpaid Quick Book job can be paid for.
+    if job.status != Job.STATUS_AWAITING_PAYMENT:
+        return jsonify({"message": "This job is not awaiting payment."}), 400
+
+    # Price: resolved from the job via the single seam. No usable price -> REFUSE
+    # (create no Paystack transaction, set no payment_reference, charge nothing).
+    amount = resolve_price_for_job(job)
+    if amount is None:
+        return jsonify({
+            "message": "This service is not yet available for instant booking (no price set)."
+        }), 400
+
+    try:
+        paystack_secret = os.environ.get('PAYSTACK_SECRET_KEY')
+        url = "https://api.paystack.co/transaction/initialize"
+        headers = {
+            "Authorization": f"Bearer {paystack_secret}",
+            "Content-Type": "application/json"
+        }
+        amount_cents = int(round(amount * 100))
+
+        payload = {
+            "email": current_user.email,
+            "amount": amount_cents,
+            "callback_url": url_for('main.payment_callback', _external=True),
+            "metadata": {
+                "type": "quick_book",
+                "job_id": job.id
+            }
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+        response_data = response.json()
+
+        if not response_data.get('status'):
+            raise Exception(response_data.get('message'))
+
+        # Record the reference so the webhook can locate THIS job by it.
+        job.payment_reference = response_data['data']['reference']
+        db.session.commit()
+
+        return jsonify({
+            "authorization_url": response_data['data']['authorization_url']
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Quick Book Payment Init Error: {e}")
+        return jsonify({"message": "Could not initialize payment"}), 500
+
 
 @bp.route('/api/requests/custom', methods=['POST'])
 @login_required

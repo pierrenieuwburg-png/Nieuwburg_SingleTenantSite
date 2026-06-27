@@ -3221,7 +3221,7 @@ def accept_lead(dispatch_id):
 
     # Race-free under the job lock: no other accept for this job can commit
     # until this transaction releases the lock.
-    if job.tenant_id is not None or job.status != 'Searching':
+    if job.tenant_id is not None or job.status != Job.STATUS_SEARCHING:
         dispatch.status = 'lost'
         db.session.commit()
         return jsonify({"message": "Another provider claimed this job first!"}), 400
@@ -3237,7 +3237,7 @@ def accept_lead(dispatch_id):
     
     # 2. Lock the Job to this specific Provider (already fetched under lock above)
     job.tenant_id = current_user.tenant_id
-    job.status = 'Matched - Awaiting Payment' 
+    job.status = Job.STATUS_AWAITING_PAYMENT
     
     # Fetch provider info to show the client
     provider_settings = BusinessSettings.query.filter_by(tenant_id=current_user.tenant_id).first()

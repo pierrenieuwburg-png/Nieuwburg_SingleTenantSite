@@ -116,3 +116,109 @@ changes — treat them as starting points, not permanent addresses.
   minimum, ensure prod logging captures WARNING+ from this module durably.
 - **Phase / priority:** **Medium — required before taking real payment volume.**
   Not a code-correctness bug; an operational gap that P1-2's design depends on.
+
+---
+
+## 7. [P1-3 prerequisite] Master-admin Quick Book pricing catalog + frequency capture
+
+- **Location:** new master-admin/HQ feature; consumed by the Quick Book
+  payment-init seam in `nieuwburg/routes/client.py` (P1-3) and by
+  `create_booking` + the `Job` model.
+- **Problem / context:** P1-3 adds the Quick Book payment loop but deliberately
+  does **not** decide pricing. The payment-init endpoint resolves the price from
+  the matched `Job` via a single "resolve price for this job" seam; while no
+  pricing/frequency data lives on the Job, it returns "no usable price" and the
+  endpoint **refuses** (no Paystack transaction, no `payment_reference`, no
+  charge). That is correct and safe, but means Quick Book cannot take a real
+  payment until this catalog exists and the Job carries the needed inputs.
+- **Two confirmed gaps this feature must close:**
+  1. **No pricing catalog.** There is no master-admin-controlled source of
+     prices. Pricing is **service-dependent**, not uniform: some services are
+     frequency-based (cleaning, landscaping, babysitting), some are one-off flat
+     (toilet install), some are one-off needing client input (tiling needs
+     area). The catalog must therefore record, **per service category**:
+     - whether the service is **frequency-based / one-off-flat / one-off-with-inputs**,
+     - the price(s) for each applicable mode,
+     - whether the service is **Quick-Bookable vs quote-only**,
+     - and feed both Quick Book charges **and** public price display.
+  2. **Frequency captured in UI but dropped on the floor.** `ClientBookingModal.jsx`
+     has a Frequency selector (Once-off / Weekly / …) and POSTs `frequency` in
+     the `createBooking` body, but `create_booking` (`client.py`) never reads it
+     and the `Job` model has no frequency column — so the choice is silently
+     discarded. (Frequency columns exist only on Quote/QuoteRequest models and
+     `ServicePrice`, none attached to `Job`.) This feature must **capture the
+     existing front-end frequency selection onto the Job** so the price seam can
+     resolve a real amount.
+- **Risk:** Until this lands, every Quick Book payment-init refuses — the loop is
+  code-complete but cannot transact. No risk of a wrong charge (refusal is the
+  safe default); the gap is purely "can't yet take real money."
+- **Phase / priority:** **Required before Quick Book real payments** — not low.
+  Sequenced **after** the payment plumbing (P1-2/P1-3), before any Quick Book
+  launch.
+
+---
+
+## Guiding identity pattern (applies to #8 and #9)
+
+**Deferred-account model — adopt the existing public-booking shadow-account
+pattern as the standard for ALL Quick Book entry points.** Decided 2026-06-27.
+
+- **No signup wall before payment.** Booking details create a person-record
+  immediately (the `get_or_create_guest_client` "shadow account" pattern already
+  used by `/api/public/book`). Payment is never gated behind login.
+- **Password is an optional, post-payment self-service upgrade.** A "set your
+  password" email goes out *after* payment; access to a dashboard is the reward,
+  not a prerequisite.
+- **Logged-in users get faster, pre-filled checkout** — a convenience, not a
+  requirement. Same underlying flow either way.
+- **Every booking becomes a provider-saveable client record** regardless of
+  password status.
+
+This is the guiding identity pattern for #8 and #9 below. **P1-3 is unaffected**
+— it ships the Quick Book payment endpoint with the current logged-in-client
+guard; the guest-capable conversion is #8/#9 work.
+
+---
+
+## 8. Guest-capable unified Quick Book (deferred-account flow)
+
+- **Problem / context:** The intended Quick Book flow is guest-first (book → pay
+  → optional password email after), but the **current** Quick Book path is
+  login-required end-to-end: `create_booking` (`client.py`) is `@login_required`
+  + `check_client_access()`, so a guest cannot even reach a matched
+  `'Matched - Awaiting Payment'` job. The guest-friendly machinery already exists
+  for public-booking (`get_or_create_guest_client`, `api.py:2948`; unauthenticated
+  `/api/public/book`, `api.py:2986`; CSRF-exempt `api_bp`) but Quick Book does not
+  use it.
+- **Scope (multi-surface flow change, NOT payment plumbing):**
+  1. Make the Quick Book booking entry guest-capable — drop the login wall and
+     create/find a shadow client via `get_or_create_guest_client`, mirroring
+     `/api/public/book`. Resolve CSRF placement (guest POSTs must live in a
+     CSRF-exempt blueprint).
+  2. Make the Quick Book payment-init endpoint (P1-3's
+     `initiate_quick_book_payment`) guest-capable: it currently uses
+     `check_client_access()` (logged-in client). For guests, ownership cannot be
+     `current_user`-based — carry identity/authorization another way (email match,
+     or a signed token in the `pro_found` payload) and re-verify in the webhook.
+  3. Ensure the webhook Quick Book branch sends the "set your password" email for
+     shadow accounts (behind `password_reset_required`), matching Scenario D.
+  4. Revisit the socket assumptions (`client_job_{job_id}` room) for an
+     unauthenticated client (ties into P2-1).
+- **Phase / priority:** Product-critical for conversion; sequenced after P1-3.
+  Depends on the identity pattern above and overlaps P2-1 (client Pulse UI).
+
+## 9. Identity / client model (deferred-account first)
+
+- **Problem / context:** Today identity is split across `User` (auth),
+  `Profile` (per-tenant person data), and ad-hoc shadow accounts. The
+  deferred-account decision makes "a person-record exists from first booking,
+  password optional later" the *primary* model, not an edge case. The data model
+  and helpers should express that directly rather than treating guest accounts as
+  a public-booking special case.
+- **Scope:** Consolidate the shadow-account/person-record lifecycle into a clear,
+  reusable identity layer: one path to create-or-find a person from booking
+  details, attach provider-saveable client records regardless of password status,
+  and a clean upgrade path (set-password email) to a full login. Every Quick Book
+  and public booking entry point uses it (feeds #8).
+- **Phase / priority:** Foundational for #8 and the broader marketplace identity
+  story; larger refactor, schedule deliberately.

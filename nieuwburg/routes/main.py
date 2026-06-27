@@ -387,16 +387,63 @@ def _process_paystack_payment(data, reference):
         return deferred
 
     # ---------------------------------------------------------
-    # SCENARIO E: QUICK BOOK (Engine A) — STUB, not implemented here
+    # SCENARIO E: QUICK BOOK (Engine A) — P1-3
     # ---------------------------------------------------------
     elif meta_type == 'quick_book':
-        # TODO P1-3: Quick Book payment -> locate the existing matched Job by its
-        #            payment_reference and transition
-        #            'Matched - Awaiting Payment' -> 'Paid & Scheduled', then fire
-        #            the welcome email behind this same idempotency guard.
-        #            Requires Job.payment_reference (added in P1-3). NOT here.
-        #            EXPECTED gap (no quick_book payments are initiated until P1-3
-        #            wires them up), so it stays quiet — unlike the catch-all below.
+        # The client has paid for a job a provider already matched. Locate the
+        # EXISTING matched job by the payment_reference recorded at payment-init
+        # (do NOT create one) and advance it to 'Paid & Scheduled'. The
+        # ProcessedWebhookEvent table already guarantees once-only; the status
+        # guard below is belt-and-suspenders.
+        from .utils import log_activity, send_async_email
+        from flask_mail import Message
+        from threading import Thread
+
+        job = Job.query.filter_by(payment_reference=reference).first()
+        meta_job_id = metadata.get('job_id')
+
+        # Locate failure: charge verified but no job carries this reference.
+        if job is None or (meta_job_id is not None and str(job.id) != str(meta_job_id)):
+            current_app.logger.error(
+                "Quick Book payment: no Job matches payment_reference=%s (metadata job_id=%r). "
+                "Charge verified but the job cannot be located; needs manual reconciliation.",
+                reference, meta_job_id
+            )
+            return deferred
+
+        # Defensive idempotency: only advance a job still awaiting payment.
+        if job.status != Job.STATUS_AWAITING_PAYMENT:
+            current_app.logger.info(
+                "Quick Book payment for Job #%s ignored: status is %r, not %r "
+                "(already processed or not in a payable state).",
+                job.id, job.status, Job.STATUS_AWAITING_PAYMENT
+            )
+            return deferred
+
+        job.status = Job.STATUS_PAID_SCHEDULED
+
+        # Deferred confirmation email (post-commit, same pattern as Scenario D).
+        client = job.client
+        if client and client.email:
+            msg = Message(
+                subject="Booking Confirmed — your pro is scheduled!",
+                sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
+                recipients=[client.email],
+                html=(
+                    f"<h3>Your booking is confirmed!</h3>"
+                    f"<p>Payment received — a pro has been scheduled for your Quick Book "
+                    f"job #{job.id}. You can track it from your dashboard.</p>"
+                    f"<p>Thanks for choosing Nieuwburg Blitz!</p>"
+                )
+            )
+            app = current_app._get_current_object()
+
+            def _send_quick_book_confirmation(app=app, msg=msg, _Thread=Thread, _send=send_async_email):
+                _Thread(target=_send, args=[app, msg]).start()
+
+            deferred.append(_send_quick_book_confirmation)
+
+        log_activity('Quick Book Paid', f"Job #{job.id} paid and scheduled.", tenant_id=job.tenant_id)
         return deferred
 
     # ---------------------------------------------------------

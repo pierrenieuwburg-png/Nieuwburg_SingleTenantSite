@@ -71,3 +71,24 @@ changes — treat them as starting points, not permanent addresses.
 - **Phase / priority:** **Low.** Recreate the venv in-place so the launcher
   shebangs resolve to this project's python; until then, always use
   `python -m flask`.
+
+---
+
+## 5. [Tech debt] `datetime.utcnow()` is deprecated on Python 3.12+
+
+- **Location:** Multiple files — `nieuwburg/routes/utils.py` (`dispatch_live_job`,
+  ~line 200) and likely others (`models.py` column defaults, `api.py`, `main.py`).
+  Grep for `utcnow()` to find all call sites before tackling.
+- **Problem:** `datetime.utcnow()` is deprecated as of Python 3.12 and emits a
+  `DeprecationWarning` on this project's Python 3.14. It still works — this is a
+  warning, not an error — but it is flagged for eventual removal from Python.
+- **Risk / caution:** The modern replacement `datetime.now(timezone.utc)` returns
+  a timezone-**aware** datetime, whereas this codebase currently stores **naive**
+  UTC datetimes. A piecemeal swap will cause `TypeError: can't compare
+  offset-naive and offset-aware datetimes` wherever a converted value is compared
+  against a still-naive one (e.g. `LeadDispatch.expires_at` checks). This makes a
+  partial change *worse* than the current harmless warning.
+- **Phase / priority:** **Low.** Must be done deliberately across the whole
+  codebase at once, with a consistent decision (go fully timezone-aware
+  everywhere, or strip tzinfo to stay naive everywhere) — not file-by-file. Worth
+  doing before a future Python upgrade removes `utcnow()` entirely.

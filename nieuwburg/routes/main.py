@@ -1,13 +1,17 @@
 import os
+import hmac
+import hashlib
+import json
 import requests
 import traceback
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import login_required, current_user, login_user, logout_user
 from flask_mail import Message
 from datetime import datetime, date
+from sqlalchemy.exc import IntegrityError
 
-from .. import db, mail
-from ..models import Post, User, Quote, Invoice, QuoteRequest, Job, Tenant
+from .. import db, mail, csrf
+from ..models import Post, User, Quote, Invoice, QuoteRequest, Job, Tenant, ProcessedWebhookEvent
 from ..forms import PlacementApplicationForm
 from .auth import generate_confirmation_token
 from .utils import send_async_email
@@ -208,192 +212,321 @@ def initiate_invoice_payment():
         return jsonify({'message': 'Could not initialize payment'}), 500
 
 
+def _verify_paystack_transaction(reference):
+    """Server-to-server re-verification against Paystack (the safety net).
+    Returns the verified transaction `data` dict on success, else None."""
+    paystack_secret = os.environ.get('PAYSTACK_SECRET_KEY')
+    headers = {"Authorization": f"Bearer {paystack_secret}"}
+    verify_url = f"https://api.paystack.co/transaction/verify/{reference}"
+    response = requests.get(verify_url, headers=headers)
+    response_data = response.json()
+    if not response_data.get('status'):
+        return None
+    data = response_data.get('data', {})
+    if data.get('status') != 'success':
+        return None
+    return data
+
+
+def _process_paystack_payment(data, reference):
+    """Apply the side-effectful state transition for a verified Paystack
+    payment. Relocated from the old GET /payment-callback (P1-2); branch logic
+    unchanged, only flash/redirect/login_user stripped (runs in a server-to-
+    server webhook with no browser session).
+
+    Returns a list of DEFERRED side-effect callables that the caller must run
+    ONLY AFTER a successful commit (e.g. the welcome email). DB mutations happen
+    here; anything external is deferred so a rollback can never leave a fired
+    side effect with no committed state. Caller owns the commit."""
+    deferred = []  # post-commit side effects; run by caller after commit() succeeds
+    raw_metadata = data.get('metadata') or {}
+
+    # --- THE ULTIMATE METADATA EXTRACTOR --- (unchanged)
+    metadata = {}
+    if isinstance(raw_metadata, dict):
+        metadata = raw_metadata
+    elif isinstance(raw_metadata, str):
+        try:
+            metadata = json.loads(raw_metadata)
+        except Exception:
+            pass
+
+    meta_type = metadata.get('type')
+    quote_id = metadata.get('quote_id')
+
+    # Paystack Custom Fields fallback
+    if not meta_type and 'custom_fields' in metadata:
+        for field in metadata['custom_fields']:
+            if field.get('variable_name') == 'type':
+                meta_type = field.get('value')
+            if field.get('variable_name') == 'quote_id':
+                quote_id = field.get('value')
+
+    # ---------------------------------------------------------
+    # SCENARIO A: SUBSCRIPTION PAYMENT
+    # ---------------------------------------------------------
+    if 'plan_type' in metadata:
+        tenant_id = metadata.get('tenant_id')
+        user_id = metadata.get('user_id')
+
+        tenant = Tenant.query.get(tenant_id)
+        if tenant:
+            tenant.is_active = True
+            tenant.paystack_reference = reference
+
+        user = User.query.get(user_id)
+        if user:
+            user.is_confirmed = True
+            user.confirmed_on = datetime.utcnow()
+            # NOTE: login_user() removed — no browser session in a webhook.
+            # Auto-login is now a UX concern, not the money path.
+        return deferred
+
+    # ---------------------------------------------------------
+    # SCENARIO B: INVOICE PAYMENT
+    # ---------------------------------------------------------
+    elif meta_type == 'invoice_payment':
+        invoice_id = metadata.get('invoice_id')
+        invoice = Invoice.query.get(invoice_id)
+        if invoice:
+            invoice.status = 'Paid'
+            invoice.payment_reference = reference
+        return deferred
+
+    # ---------------------------------------------------------
+    # SCENARIO C: QUOTE DEPOSIT
+    # ---------------------------------------------------------
+    elif 'quote_id' in metadata and meta_type != 'public_booking':
+        quote = Quote.query.get(quote_id)
+        if quote:
+            quote.deposit_paid = True
+            quote.status = 'Accepted'
+        return deferred
+
+    # ---------------------------------------------------------
+    # SCENARIO D: PUBLIC WIZARD BOOKING
+    # ---------------------------------------------------------
+    elif meta_type == 'public_booking':
+        if quote_id:
+            from ..models import QuoteRequest, Job, ServiceItem, User
+            from .utils import log_activity, send_async_email
+            from flask_mail import Message
+            from itsdangerous import URLSafeTimedSerializer
+            from threading import Thread
+
+            quote_req = QuoteRequest.query.get(quote_id)
+
+            if quote_req and quote_req.status in ['Pending', 'New']:
+                # 1. Update status so it vanishes from Quotes
+                quote_req.status = 'Confirmed'
+
+                # 2. Add to Job Calendar
+                service_item = ServiceItem.query.filter_by(
+                    name=quote_req.primary_service,
+                    tenant_id=quote_req.tenant_id
+                ).first()
+
+                sched_date = date.today()
+                start_time = datetime.strptime("08:00", "%H:%M").time()
+
+                try:
+                    if "(Requested for " in quote_req.description:
+                        time_part = quote_req.description.split("(Requested for ")[1].split(")")[0]
+                        d_str, t_str = time_part.split(" ")
+                        sched_date = datetime.strptime(d_str, "%Y-%m-%d").date()
+                        start_time = datetime.strptime(t_str, "%H:%M").time()
+                except Exception as e:
+                    print(f"Time parsing failed: {e}")
+
+                new_job = Job(
+                    quote_request_id=quote_req.id,
+                    client_id=quote_req.user_id,
+                    service_id=service_item.id if service_item else None,
+                    scheduled_date=sched_date,
+                    start_time=start_time,
+                    status='Scheduled',
+                    notes=f"Paid upfront via Paystack. Ref: {reference}",
+                    tenant_id=quote_req.tenant_id
+                )
+                db.session.add(new_job)
+                db.session.flush()  # assign new_job.id for the log line below
+
+                # 3. Build the welcome email but DEFER sending it until AFTER the
+                #    caller commits — so a rollback can never leave a sent email
+                #    with no committed job.
+                user = User.query.get(quote_req.user_id)
+                if user and getattr(user, 'password_reset_required', False):
+                    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
+                    token = serializer.dumps(user.email, salt=current_app.config.get('SECURITY_PASSWORD_SALT', 'my_precious_salt'))
+                    setup_url = url_for('auth.reset_password', token=token, _external=True)
+
+                    client_name = quote_req.name or "Valued Client"
+                    email_html = f"""
+                    <h3>Hi {client_name},</h3>
+                    <p>Your payment was successful and your booking with Nieuwburg Blitz is confirmed!</p>
+                    <p>We've created a secure dashboard for you to track your cleaner, view your service history, and manage your property.</p>
+                    <p><a href="{setup_url}" style="display:inline-block;padding:10px 20px;background-color:#006ac6;color:white;text-decoration:none;border-radius:5px;">Click here to set your password and access your dashboard</a></p>
+                    <p>Welcome to the Blitz family!</p>
+                    """
+
+                    msg = Message(
+                        subject="Booking Confirmed! Complete your setup.",
+                        sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
+                        recipients=[user.email],
+                        html=email_html
+                    )
+
+                    app = current_app._get_current_object()
+
+                    def _send_welcome_email(app=app, msg=msg, _Thread=Thread, _send=send_async_email):
+                        _Thread(target=_send, args=[app, msg]).start()
+
+                    deferred.append(_send_welcome_email)
+
+                log_activity('Public Booking Paid', f"Job #{new_job.id} created from upfront payment.", tenant_id=quote_req.tenant_id)
+        return deferred
+
+    # ---------------------------------------------------------
+    # SCENARIO E: QUICK BOOK (Engine A) — STUB, not implemented here
+    # ---------------------------------------------------------
+    elif meta_type == 'quick_book':
+        # TODO P1-3: Quick Book payment -> locate the existing matched Job by its
+        #            payment_reference and transition
+        #            'Matched - Awaiting Payment' -> 'Paid & Scheduled', then fire
+        #            the welcome email behind this same idempotency guard.
+        #            Requires Job.payment_reference (added in P1-3). NOT here.
+        #            EXPECTED gap (no quick_book payments are initiated until P1-3
+        #            wires them up), so it stays quiet — unlike the catch-all below.
+        return deferred
+
+    # ---------------------------------------------------------
+    # UNRECOGNISED: verified successful charge that matched no handler.
+    # ---------------------------------------------------------
+    # Terminal — the caller keeps the dedup row and returns 200 (we do NOT want
+    # Paystack retrying a payment we will never route). But this MUST be loud:
+    # it is the safety net that lets a human catch and manually handle a real
+    # payment the code didn't recognise. Do not bury it.
+    current_app.logger.warning(
+        "Verified successful charge could not be routed to any handler. "
+        "Paystack txn data.id=%s, reference=%s, metadata type=%r, metadata keys=%s",
+        data.get('id'), reference, meta_type, sorted(metadata.keys())
+    )
+    return deferred
+
+
+@bp.route('/webhooks/paystack', methods=['POST'])
+@csrf.exempt  # server-to-server; no CSRF token. Authenticity is the HMAC signature below.
+def paystack_webhook():
+    paystack_secret = os.environ.get('PAYSTACK_SECRET_KEY')
+    if not paystack_secret:
+        current_app.logger.error("Paystack webhook hit but PAYSTACK_SECRET_KEY is not configured.")
+        return jsonify({"status": "misconfigured"}), 500
+
+    raw_body = request.get_data()  # exact bytes — must hash the raw body, not a re-serialised dict
+    signature = request.headers.get('x-paystack-signature', '')
+
+    # 1. Verify the HMAC-SHA512 signature against the raw body.
+    expected = hmac.new(paystack_secret.encode('utf-8'), raw_body, hashlib.sha512).hexdigest()
+    if not signature or not hmac.compare_digest(expected, signature):
+        return jsonify({"status": "invalid signature"}), 401
+
+    # 2. Parse the event.
+    try:
+        event = json.loads(raw_body)
+    except Exception:
+        return jsonify({"status": "bad payload"}), 400
+
+    data = event.get('data') or {}
+
+    # 3. Only `charge.success` drives state today. Anything else is received but
+    #    NOT handled — return 200 WITHOUT recording a dedup row, so an unhandled
+    #    type can never poison a later real event.
+    if event.get('event') != 'charge.success' or data.get('status') != 'success':
+        return jsonify({"status": "ignored"}), 200
+
+    # Dedup key: Paystack's transaction id (data.id) — globally unique per
+    # transaction. NOT `reference` (caller-set, can be reused/duplicated and
+    # would let two distinct payments collide).
+    event_key = data.get('id')
+    reference = data.get('reference')
+    if event_key is None or not reference:
+        return jsonify({"status": "missing identifiers"}), 400
+
+    # 4. Record-as-handled FIRST. The UNIQUE(provider, event_id) + caught
+    #    IntegrityError gives atomic dedup even under concurrent Paystack retries.
+    record = ProcessedWebhookEvent(provider='paystack', event_id=str(event_key))
+    db.session.add(record)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({"status": "already processed"}), 200
+
+    # 5. Re-verify against Paystack (safety net). This is the ONLY pre-state,
+    #    no-side-effect step — so it is the ONLY place a transient failure is
+    #    safe to retry. A network/HTTP blip here un-records and 500s.
+    try:
+        verified = _verify_paystack_transaction(reference)
+    except Exception as e:
+        db.session.rollback()
+        ProcessedWebhookEvent.query.filter_by(provider='paystack', event_id=str(event_key)).delete()
+        db.session.commit()
+        current_app.logger.error(f"Paystack re-verification errored (transient) for ref {reference}: {e}")
+        return jsonify({"status": "verify error"}), 500
+
+    if verified is None:
+        # Paystack definitively did not confirm a successful charge. Not
+        # transient — do NOT loop on retries. Keep the row, surface loudly.
+        current_app.logger.error(
+            f"Paystack re-verification did not confirm success for txn id {event_key}, "
+            f"ref {reference}. Dedup row KEPT (no retry); needs manual review."
+        )
+        return jsonify({"status": "not verified"}), 200
+
+    # 6. Apply DB state. Side effects are DEFERRED to step 7, so a failure here
+    #    persists nothing (rollback) and fires no external action. We cannot
+    #    prove such a failure is transient, so we will NOT risk a retry
+    #    duplicating a job/payment: keep the dedup row, log loudly, return 200.
+    try:
+        deferred_side_effects = _process_paystack_payment(verified, reference)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(
+            f"Paystack webhook DB processing failed AFTER dedup-record for txn id "
+            f"{event_key}, ref {reference}: {e}. Row KEPT to prevent retry "
+            f"duplication; requires manual reconciliation."
+        )
+        traceback.print_exc()
+        return jsonify({"status": "error"}), 200
+
+    # 7. Post-commit side effects (e.g. welcome email). DB state is now durable,
+    #    so these run only on success — a rollback can never leave a sent email
+    #    with no committed job. A failure here does NOT retry (state is already
+    #    committed); log loudly so a human can follow up.
+    for action in deferred_side_effects:
+        try:
+            action()
+        except Exception as e:
+            current_app.logger.error(
+                f"Paystack webhook post-commit side effect failed for txn id "
+                f"{event_key}, ref {reference}: {e}. DB state committed; side "
+                f"effect (e.g. email) needs manual follow-up."
+            )
+
+    return jsonify({"status": "success"}), 200
+
+
 @bp.route('/payment-callback')
 def payment_callback():
+    # P1-2: UX-only. The signed POST /webhooks/paystack is now the source of
+    # truth for payment state; this browser-redirect endpoint NO LONGER mutates
+    # anything — it just lands the user on a "thanks / processing" view.
     reference = request.args.get('reference')
     if not reference:
         flash('No payment reference provided.', 'error')
         return redirect(url_for('main.index'))
-
-    try:
-        # 1. Verify Transaction
-        paystack_secret = os.environ.get('PAYSTACK_SECRET_KEY')
-        headers = {"Authorization": f"Bearer {paystack_secret}"}
-        verify_url = f"https://api.paystack.co/transaction/verify/{reference}"
-        
-        response = requests.get(verify_url, headers=headers)
-        response_data = response.json()
-
-        if not response_data.get('status'):
-            flash(f"Payment verification failed: {response_data.get('message')}", 'error')
-            return redirect(url_for('main.index'))
-
-        data = response_data.get('data', {})
-        raw_metadata = data.get('metadata') or {}
-        
-        # --- THE ULTIMATE METADATA EXTRACTOR ---
-        metadata = {}
-        if isinstance(raw_metadata, dict):
-            metadata = raw_metadata
-        elif isinstance(raw_metadata, str):
-            import json
-            try:
-                metadata = json.loads(raw_metadata)
-            except Exception:
-                pass
-                
-        meta_type = metadata.get('type')
-        quote_id = metadata.get('quote_id')
-        
-        # Paystack Custom Fields fallback
-        if not meta_type and 'custom_fields' in metadata:
-            for field in metadata['custom_fields']:
-                if field.get('variable_name') == 'type':
-                    meta_type = field.get('value')
-                if field.get('variable_name') == 'quote_id':
-                    quote_id = field.get('value')
-        
-        if data.get('status') == 'success':
-            # ---------------------------------------------------------
-            # SCENARIO A: SUBSCRIPTION PAYMENT
-            # ---------------------------------------------------------
-            if 'plan_type' in metadata:
-                tenant_id = metadata.get('tenant_id')
-                user_id = metadata.get('user_id')
-                
-                tenant = Tenant.query.get(tenant_id)
-                if tenant:
-                    tenant.is_active = True
-                    tenant.paystack_reference = reference
-                
-                user = User.query.get(user_id)
-                if user:
-                    user.is_confirmed = True
-                    user.confirmed_on = datetime.utcnow()
-                    login_user(user)
-                
-                db.session.commit()
-                flash("Payment successful! Welcome to Nieuwburg Blitz.", 'success')
-                return redirect(url_for('admin.admin_spa_shell', path='setup-wizard'))
-
-            # ---------------------------------------------------------
-            # SCENARIO B: INVOICE PAYMENT
-            # ---------------------------------------------------------
-            elif meta_type == 'invoice_payment':
-                invoice_id = metadata.get('invoice_id')
-                invoice = Invoice.query.get(invoice_id)
-                if invoice:
-                    invoice.status = 'Paid'
-                    invoice.payment_reference = reference
-                    db.session.commit()
-                    return redirect(url_for('main.public_invoice_pay', token=invoice.payment_token))
-            
-            # ---------------------------------------------------------
-            # SCENARIO C: QUOTE DEPOSIT
-            # ---------------------------------------------------------
-            elif 'quote_id' in metadata and meta_type != 'public_booking':
-                quote_id = metadata.get('quote_id')
-                quote = Quote.query.get(quote_id)
-                if quote:
-                    quote.deposit_paid = True
-                    quote.status = 'Accepted' 
-                    db.session.commit()
-                    flash('Deposit received. Quote accepted!', 'success')
-                    return redirect(url_for('main.public_quote_view', token=quote.acceptance_token))
-
-            # ---------------------------------------------------------
-            # SCENARIO D: PUBLIC WIZARD BOOKING (THE FIX)
-            # ---------------------------------------------------------
-            elif meta_type == 'public_booking':
-                
-                if quote_id:
-                    from ..models import QuoteRequest, Job, ServiceItem, User
-                    from .utils import log_activity, send_async_email
-                    from flask_mail import Message
-                    from itsdangerous import URLSafeTimedSerializer
-                    from threading import Thread
-                    
-                    quote_req = QuoteRequest.query.get(quote_id)
-
-                    if quote_req and quote_req.status in ['Pending', 'New']:
-                        # 1. Update status so it vanishes from Quotes
-                        quote_req.status = 'Confirmed'
-                        
-                        # 2. Add to Job Calendar
-                        service_item = ServiceItem.query.filter_by(
-                            name=quote_req.primary_service, 
-                            tenant_id=quote_req.tenant_id
-                        ).first()
-                        
-                        sched_date = date.today()
-                        start_time = datetime.strptime("08:00", "%H:%M").time()
-                        
-                        try:
-                            if "(Requested for " in quote_req.description:
-                                time_part = quote_req.description.split("(Requested for ")[1].split(")")[0]
-                                d_str, t_str = time_part.split(" ")
-                                sched_date = datetime.strptime(d_str, "%Y-%m-%d").date()
-                                start_time = datetime.strptime(t_str, "%H:%M").time()
-                        except Exception as e:
-                            print(f"Time parsing failed: {e}")
-
-                        new_job = Job(
-                            quote_request_id=quote_req.id,
-                            client_id=quote_req.user_id,
-                            service_id=service_item.id if service_item else None,
-                            scheduled_date=sched_date,
-                            start_time=start_time,
-                            status='Scheduled',
-                            notes=f"Paid upfront via Paystack. Ref: {reference}",
-                            tenant_id=quote_req.tenant_id
-                        )
-                        db.session.add(new_job)
-                        
-                        # 3. Trigger the Welcome Email NOW (Behind the Paywall)
-                        user = User.query.get(quote_req.user_id)
-                        if user and getattr(user, 'password_reset_required', False):
-                            serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
-                            token = serializer.dumps(user.email, salt=current_app.config.get('SECURITY_PASSWORD_SALT', 'my_precious_salt'))
-                            setup_url = url_for('auth.reset_password', token=token, _external=True)
-                            
-                            client_name = quote_req.name or "Valued Client"
-                            email_html = f"""
-                            <h3>Hi {client_name},</h3>
-                            <p>Your payment was successful and your booking with Nieuwburg Blitz is confirmed!</p>
-                            <p>We've created a secure dashboard for you to track your cleaner, view your service history, and manage your property.</p>
-                            <p><a href="{setup_url}" style="display:inline-block;padding:10px 20px;background-color:#006ac6;color:white;text-decoration:none;border-radius:5px;">Click here to set your password and access your dashboard</a></p>
-                            <p>Welcome to the Blitz family!</p>
-                            """
-                            
-                            msg = Message(
-                                subject="Booking Confirmed! Complete your setup.",
-                                sender=current_app.config.get('MAIL_USERNAME', 'noreply@nieuwburg.com'),
-                                recipients=[user.email],
-                                html=email_html
-                            )
-                            
-                            app = current_app._get_current_object()
-                            thr = Thread(target=send_async_email, args=[app, msg])
-                            thr.start()
-                        
-                        log_activity('Public Booking Paid', f"Job #{new_job.id} created from upfront payment.", tenant_id=quote_req.tenant_id)
-                        db.session.commit()
-
-                # Redirect back to homepage with Toast flags attached
-                return redirect(url_for('main.index', booking_success='true', new_user='true'))
-
-        else:
-            flash('Payment was not successful.', 'error')
-            return redirect(url_for('main.index'))
-
-    except Exception as e:
-        print(f"Payment Callback Error: {e}")
-        import traceback
-        traceback.print_exc()
-        flash('An error occurred verifying payment.', 'error')
-        return redirect(url_for('main.index'))
-
-    return redirect(url_for('main.index'))
+    return redirect(url_for('main.index', payment='processing'))
 
 @bp.route('/check-email')
 def check_email():

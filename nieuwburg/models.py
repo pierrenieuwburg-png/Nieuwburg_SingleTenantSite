@@ -478,6 +478,17 @@ class JobPhoto(db.Model):
     task = db.relationship('JobTask', back_populates='photos')
     uploaded_by = db.relationship('User', foreign_keys=[uploaded_by_id])
 
+class ProcessedWebhookEvent(db.Model):
+    # Idempotency ledger for inbound payment-provider webhooks (P1-2).
+    # A row here means an event was *handled*, not merely received — only insert
+    # one inside a branch that actually processes the event, so an unhandled type
+    # cannot poison a later real event sharing the same key.
+    id = db.Column(db.Integer, primary_key=True)
+    provider = db.Column(db.String(20), nullable=False, default='paystack')
+    event_id = db.Column(db.String(120), nullable=False)   # Paystack transaction id (data.id) — globally unique per txn
+    processed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    __table_args__ = (db.UniqueConstraint('provider', 'event_id', name='_provider_event_uc'),)
+
 # --- Helper Functions ---
 def get_next_quote_number(tenant_id):
     last_quote = Quote.query.filter_by(tenant_id=tenant_id).order_by(Quote.id.desc()).first()

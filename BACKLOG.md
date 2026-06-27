@@ -92,3 +92,27 @@ changes — treat them as starting points, not permanent addresses.
   codebase at once, with a consistent decision (go fully timezone-aware
   everywhere, or strip tzinfo to stay naive everywhere) — not file-by-file. Worth
   doing before a future Python upgrade removes `utcnow()` entirely.
+
+---
+
+## 6. [P1-2 follow-up] Alerting for unroutable / failed Paystack charges
+
+- **Location:** `nieuwburg/routes/main.py` — `paystack_webhook` and
+  `_process_paystack_payment` (P1-2).
+- **Problem:** The webhook's safety net for money it can't process is a
+  `current_app.logger` line, by design:
+  - **WARNING** — a verified `charge.success` whose metadata matches no handler
+    (unrecognised shape). Row kept, returns 200, no retry.
+  - **ERROR** — re-verify did not confirm success; DB processing failed after
+    the dedup record; or a post-commit side effect (welcome email) failed. Row
+    kept, returns 200, no retry — a human must reconcile.
+- **Risk:** These log lines are the *only* signal that a real payment was
+  received but not fully handled. If nothing watches the logs, a stranded
+  payment is silently invisible until a customer complains. The idempotency
+  design deliberately favours "no duplicate" over "auto-retry," which makes
+  human-visible alerting the required backstop, not a nice-to-have.
+- **Fix:** Route these WARNING/ERROR lines to an actual alert channel (email to
+  ops, Slack/webhook, Sentry, or a "needs reconciliation" admin queue). At
+  minimum, ensure prod logging captures WARNING+ from this module durably.
+- **Phase / priority:** **Medium — required before taking real payment volume.**
+  Not a code-correctness bug; an operational gap that P1-2's design depends on.

@@ -273,12 +273,17 @@ class Job(db.Model):
     # Single source of truth for the status strings; referenced by
     # create_booking, dispatch_live_job, accept_lead, and the Paystack webhook.
     #   Searching -> Matched - Awaiting Payment -> Paid & Scheduled
-    #   (+ 'Expired' from P1-4 once the no-acceptance sweep lands)
+    #   Searching -> Expired (P1-4: no pro accepted within the dispatch window;
+    #                         the job is reposted as a floating marketplace lead)
     STATUS_SEARCHING = 'Searching'
     STATUS_AWAITING_PAYMENT = 'Matched - Awaiting Payment'
     STATUS_PAID_SCHEDULED = 'Paid & Scheduled'
+    STATUS_EXPIRED = 'Expired'
 
     id = db.Column(db.Integer, primary_key=True)
+    # When the job row was created — the time anchor the timeout sweep uses to
+    # age out a 'Searching' job that got ZERO dispatches (no providers in range).
+    created_at = db.Column(db.DateTime, default=datetime.utcnow, nullable=False)
     scheduled_date = db.Column(db.Date, nullable=False)
     start_time = db.Column(db.Time, nullable=True)
     end_time = db.Column(db.Time, nullable=True)

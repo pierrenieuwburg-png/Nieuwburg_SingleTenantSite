@@ -222,3 +222,88 @@ guard; the guest-capable conversion is #8/#9 work.
   and public booking entry point uses it (feeds #8).
 - **Phase / priority:** Foundational for #8 and the broader marketplace identity
   story; larger refactor, schedule deliberately.
+
+---
+
+## 10. [P1-4 follow-up] Quick Book re-run flow (resurrect, don't duplicate)
+
+- **Problem / context:** P1-4 converts a timed-out Quick Book job to a floating
+  lead (`Job.status='Expired'` + a `QuoteRequest(marketplace_status='floating')`),
+  and stamps an **identity hook** on that lead: the customer `email` + a
+  bidirectional `Job.quote_request_id` link back to the origin job. P1-4 only
+  *creates* the hook; the matching/dedup behaviour is this ticket.
+- **Scope:**
+  1. Re-running a search **resurrects the same request** (re-dispatch the
+     existing job / reuse the floating lead via the identity hook) rather than
+     creating a brand-new job — so a customer doesn't spawn duplicate floating
+     leads by re-pinging.
+  2. When a re-run **matches a pro**, **delete (or close) the floating lead** the
+     timeout created, so it doesn't linger on the marketplace board after the job
+     is taken.
+  3. The client prompt must offer **TWO DISTINCT actions**, so intent is explicit:
+     - **"Try again"** → same job, re-search (resurrect via the identity hook);
+     - **"Make a new request"** → different service, a genuinely new request.
+     Conflating these is what allows duplicate floating leads to arise.
+- **Phase / priority:** Follow-up to P1-4; pairs with P2-1 (client Pulse UI, which
+  owns the prompt) and the #8 guest flow.
+
+## 11. [P1-4 follow-up] Floating-lead acceptance flow + client re-confirmation
+
+- **Problem / context:** P1-4 produces floating leads but nothing lets a pro
+  *take* one, and a floating lead has a fixed Quick Book price the customer set
+  expectations against — a pro picking it up later may need to adjust.
+- **Scope:**
+  1. **Floating-lead board UI** — a paginated "floating quick leads" section where
+     pros browse unclaimed `marketplace_status='floating'` requests (overlaps the
+     P2-2 Available Leads board / P2-3 search fixes).
+  2. A pro **accepts** a floating lead (claims it: `marketplace_status='claimed'`,
+     assign `tenant_id`).
+  3. **Client re-confirmation** before payment/scheduling — "a pro wants your job
+     — any adjustments?" — since this is no longer the instant-match path and
+     terms/price may shift. Only after the client re-confirms does it proceed to
+     payment.
+- **Phase / priority:** Follow-up to P1-4; overlaps Phase 2 marketplace UI
+  (P2-2/P2-3).
+
+## 12. [P1-4 follow-up] Multi-worker sweep coordination
+
+- **Problem / context:** The P1-4 timeout sweeper is launched per-process from
+  `run.py` and runs an in-process loop. Today the app runs as a single
+  `socketio.run` process, and the locked exactly-once flip means even a
+  duplicated sweep is safe (a second runner just sees `status != 'Searching'` and
+  skips). But under a multi-worker deployment (e.g. gunicorn with N workers, or
+  bypassing `run.py`), **every worker would run its own sweep loop** — wasteful,
+  and the launch would need re-homing since it currently lives in `run.py`.
+- **Scope:** Ensure **only one** sweeper runs cluster-wide — leader election, a DB
+  advisory lock, a dedicated scheduler/worker process, or an external cron hitting
+  a sweep endpoint. Re-home the launch out of `run.py` accordingly.
+- **Phase / priority:** Required before any multi-worker / non-`run.py`
+  deployment. Not a correctness bug today (idempotent flip), purely
+  efficiency/architecture.
+
+## 13. [Roadmap] Quick Book radius tuning — two-layer control
+
+- **Context:** The Haversine/radius machinery already exists in
+  `dispatch_live_job` (filters providers by `service_radius_km`). This note is
+  about **who controls the radius**, not the math.
+- **Two layers:**
+  1. **Master-admin** sets sensible per-category defaults/caps (~30km) so nobody
+     is pinged for implausibly distant jobs.
+  2. **Each provider** sets their OWN business radius in their business settings,
+     operating **within** the master-admin bounds.
+- **Phase / priority:** Pairs with the pricing catalog (#7); marketplace tuning,
+  not near-term blocking.
+
+## 14. [Roadmap] Provider availability + coarse location (NOT live GPS tracking)
+
+- **Context:** To improve dispatch matching, add a simple provider
+  **availability** status — "available for Quick Book / busy" — optionally with an
+  **occasional coarse location** update (shift-start or manual), so dispatch
+  matches on registered service area + current availability.
+- **Explicit decision — NO continuous live device-location tracking.** Live GPS
+  tracking suits Uber's constantly-moving drivers, but our jobs are long (90+ min)
+  and stationary, so live tracking would be over-engineering.
+  - *Possible far-future exception:* en-route "your pro is on the way" tracking as
+    customer reassurance — **not** for matching, **not** near-term.
+- **Phase / priority:** Roadmap; depends on the provider-settings surface and
+  pairs with radius tuning (#13).

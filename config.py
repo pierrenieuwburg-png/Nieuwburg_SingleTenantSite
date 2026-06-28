@@ -40,3 +40,15 @@ class Config:
     # Google OAuth Config
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
     GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
+
+    # --- Quick Book dispatch (Engine A) ---
+    # Single source of truth for the dispatch window: used BOTH when
+    # dispatch_live_job stamps LeadDispatch.expires_at AND by the timeout sweep's
+    # age threshold (arm b). Keep them reading this one value — no drift.
+    QUICK_BOOK_DISPATCH_WINDOW_SECONDS = int(os.environ.get('QUICK_BOOK_DISPATCH_WINDOW_SECONDS', 120))
+    # Off-switch for the background timeout sweeper (launched from run.py). The
+    # sweeper only runs when the server runs; this flag lets ops disable it
+    # without a code change.
+    DISPATCH_SWEEPER_ENABLED = os.environ.get('DISPATCH_SWEEPER_ENABLED', 'true').lower() in ['true', 'on', '1']
+    # How often the sweeper tick runs, in seconds.
+    DISPATCH_SWEEPER_INTERVAL_SECONDS = int(os.environ.get('DISPATCH_SWEEPER_INTERVAL_SECONDS', 12))

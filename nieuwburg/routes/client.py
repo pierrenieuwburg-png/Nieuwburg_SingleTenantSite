@@ -9,7 +9,7 @@ import os
 import requests
 
 # --- NEW IMPORTS from utils (Ensure these exist in routes/utils.py) ---
-from .utils import render_template_to_pdf, log_activity
+from .utils import render_template_to_pdf, log_activity, resolve_price_for_job
 
 bp = Blueprint('client', __name__, url_prefix='/client')
 
@@ -284,26 +284,6 @@ def create_booking():
         db.session.rollback()
         print(f"Error creating booking: {e}")
         return jsonify({"message": "Error processing request"}), 500
-
-
-def resolve_price_for_job(job):
-    """Single seam: 'what does this Quick Book job cost, in ZAR?'
-
-    Pricing is master-admin-controlled and service-dependent (frequency-based,
-    one-off-flat, or one-off-with-inputs) — it is NOT decided here, and is NOT a
-    hard-coded rate or an assumed-frequency formula. The price is resolved from
-    pricing inputs carried ON THE JOB, which are populated once the master-admin
-    pricing catalog + frequency capture exist (see BACKLOG #7).
-
-    Until those inputs exist there is no usable price for any job, so this
-    returns None and the caller MUST refuse (charge nothing). Returns a positive
-    float amount in ZAR, or None if no usable price is available yet.
-    """
-    # TODO (BACKLOG #7): resolve from the master-admin pricing catalog using the
-    # job's service category + the frequency/inputs captured on the Job. No such
-    # inputs are stored on the Job yet, so no price is resolvable today — every
-    # job is currently unpriced and the payment-init endpoint refuses.
-    return None
 
 
 @bp.route('/api/jobs/<int:job_id>/initiate-payment', methods=['POST'])

@@ -8,6 +8,7 @@ import Bookings from './pages/Bookings';
 import Clients from './pages/Clients';
 import Staff from './pages/Staff';
 import Quotes from './pages/Quotes';
+import AvailableLeads from './pages/AvailableLeads';
 import Invoices from './pages/Invoices';
 import Services from './pages/Services';
 import Blog from './pages/Blog';
@@ -94,6 +95,7 @@ function App() {
         <Route path="/staff/edit/:staffId" element={<EditStaff />} />
         <Route path="/applications" element={<Applications />} />
         <Route path="/quotes" element={<Quotes />} />
+        <Route path="/available-leads" element={<AvailableLeads />} />
         <Route path="/quotes/new" element={<CreateQuote />} />
         <Route path="/quotes/:quoteId" element={<QuoteDetail />} />
         <Route path="/invoices" element={<Invoices />} />

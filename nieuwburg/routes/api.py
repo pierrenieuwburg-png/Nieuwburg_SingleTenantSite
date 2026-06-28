@@ -3,6 +3,7 @@ from flask_login import login_required, current_user
 from flask_socketio import join_room
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm.attributes import flag_modified
+from sqlalchemy import func
 from itsdangerous import URLSafeTimedSerializer
 from threading import Thread
 import secrets
@@ -3266,6 +3267,100 @@ def accept_lead(dispatch_id):
     db.session.commit()
 
     return jsonify({"message": "Job secured! Waiting for client to finalize payment."}), 200
+
+
+# ============================================================
+# Available Leads board (P2-2) — floating marketplace leads
+# ============================================================
+
+@bp.route('/admin/available-leads', methods=['GET'])
+@login_required
+def get_available_leads():
+    """Marketplace board (P2-2): floating leads ANY provider can claim.
+
+    NOT tenant-scoped (BACKLOG #3) — a floating lead belongs to no tenant yet, so
+    filtering by current_user.tenant_id would hide it from the providers who
+    should see it. Filters: marketplace_status == 'floating' AND fewer than 5
+    quotes attached (a saturated lead drops off the board).
+
+    Each lead is tagged `lead_type`:
+      'quick_book'    — a timed-out Quick Book repost (P1-4): fixed price,
+                        time-sensitive, has an origin Job (lead.job is set).
+      'quote_request' — a custom request needing a quote (no origin Job).
+    P2-2 renders ONLY the quick_book section; the quote_request section is P2-3,
+    so the endpoint already returns both (build to grow)."""
+    if not current_user.is_authenticated or current_user.role != 'admin':
+        return jsonify({"message": "Permission denied"}), 403
+
+    # Fewer-than-5-quotes filter via a correlated count subquery on the
+    # QuoteRequest.quotes backref (Quote.quote_request_id).
+    quote_count_sq = (
+        db.session.query(func.count(Quote.id))
+        .filter(Quote.quote_request_id == QuoteRequest.id)
+        .correlate(QuoteRequest)
+        .scalar_subquery()
+    )
+
+    leads = (
+        QuoteRequest.query
+        .filter(QuoteRequest.marketplace_status == 'floating', quote_count_sq < 5)
+        .order_by(QuoteRequest.request_date.desc())
+        .all()
+    )
+
+    def serialize(lead):
+        is_quick_book = lead.job is not None   # P1-4 links the origin Job
+        return {
+            "id": lead.id,
+            "lead_type": "quick_book" if is_quick_book else "quote_request",
+            "service": lead.primary_service or lead.subject or "Service request",
+            "category": lead.service_category_name,
+            "price": lead.total_price,          # fixed QB price; None until BACKLOG #7
+            "description": lead.description,
+            "latitude": lead.latitude,
+            "longitude": lead.longitude,
+            "quote_count": len(lead.quotes),
+            "requested_at": lead.request_date.isoformat() if lead.request_date else None,
+        }
+
+    return jsonify([serialize(l) for l in leads]), 200
+
+
+@bp.route('/admin/available-leads/<int:request_id>/claim', methods=['POST'])
+@login_required
+def claim_available_lead(request_id):
+    """Atomic EXCLUSIVE claim of a floating lead (P2-2). Mirrors the P0-3/P1-4
+    locked-latch pattern: lock the QuoteRequest row with_for_update(), re-assert
+    it is still 'floating' UNDER the lock (the once-only latch), then flip to
+    'claimed' + assign tenant_id. A second concurrent claimant sees a non-floating
+    status and gets 409 — exactly one winner.
+
+    Scope is ownership ONLY: it does NOT revive the Expired origin Job, create a
+    Quote, or start payment. The acceptance -> client re-confirmation -> payment
+    flow is BACKLOG #11."""
+    if not current_user.is_authenticated or current_user.role != 'admin':
+        return jsonify({"message": "Permission denied"}), 403
+
+    if not current_user.tenant_id:
+        return jsonify({"message": "Only a provider business can claim leads."}), 403
+
+    # Lock the contended row; re-check status under the lock.
+    lead = db.session.query(QuoteRequest).filter_by(id=request_id).with_for_update().first()
+    if lead is None:
+        return jsonify({"message": "Lead not found."}), 404
+
+    if lead.marketplace_status != 'floating':
+        db.session.rollback()
+        return jsonify({"message": "This lead has already been claimed."}), 409
+
+    lead.marketplace_status = 'claimed'
+    lead.tenant_id = current_user.tenant_id
+    db.session.commit()   # atomic claim + lock release
+
+    log_activity('Lead Claimed', f"Floating lead #{lead.id} claimed from the marketplace.",
+                 user_id=current_user.id, tenant_id=current_user.tenant_id)
+
+    return jsonify({"message": "Lead claimed! It's now in your pipeline.", "id": lead.id}), 200
 
 @bp.route('/api/user/me', methods=['GET'])
 @login_required

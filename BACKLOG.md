@@ -327,3 +327,85 @@ guard; the guest-capable conversion is #8/#9 work.
   and align the eslint/plugin versions, or pin a config-compatible ESLint. Then
   confirm `npm run lint` runs clean.
 - **Phase / priority:** Low (tooling). Worth fixing so linting is usable again.
+
+---
+
+## 16. Restructure Quotes vs Leads (inbox/outbox split)
+
+- **Problem / context:** New bookings currently land in **"Quotes"** as `'pending'`,
+  conflating **incoming** work (leads the provider should act on) with the
+  provider's **outgoing** quotes (what they've submitted to clients). The two are
+  different sides of the business and should not share a surface.
+- **Target:** Establish a clean inbox/outbox split:
+  - **Available Leads = incoming work (inbox)** — Quick Book floating leads +
+    quote-request leads to claim/quote (the P2-2 board grows into this).
+  - **Quotes = the provider's own submitted quotes + the quote-creation tool
+    (outbox / CRM surface).**
+- **Touches (cross-cutting):** booking routing (where a new booking/quote-request
+  lands), the Quotes view query (stop showing incoming `'pending'` as the
+  provider's quotes), dashboard **"pending quotes"** counts, and the quote-tool's
+  home.
+- **Phase / priority:** Sequence **after** the leads board (P2-2) and the
+  marketplace surface (P2-3) exist — they establish the inbox side this splits
+  against. Cross-cutting; its own design + ticket. Related vision: [[R1]].
+
+---
+
+## 17. [Bug] `/api/user/me` is double-prefixed → ProviderDispatchModal never mounts
+
+- **Location:** `nieuwburg/routes/api.py` `get_current_user_info` declared
+  `@bp.route('/api/user/me')`, but `api_bp` is registered with `url_prefix='/api'`
+  — so the route resolves to **`/api/api/user/me`**. The frontend
+  (`admin-frontend/src/App.jsx:57`) fetches **`/api/user/me`** (single prefix),
+  which is **not registered → 404**.
+- **Impact:** `fetchUserContext()` fails → `currentTenantId` is never set →
+  `{currentTenantId && <ProviderDispatchModal .../>}` never renders → providers
+  **never receive `incoming_lead` broadcasts in the UI**. Engine A's provider-side
+  realtime (the Quick Book accept path) is effectively dead at the UI level.
+- **Discovered:** during P2-2 (the same `/api`-prefix trap that double-prefixed
+  the new board routes before they were corrected). This is the **only** remaining
+  `/api/api/...` route.
+- **Fix:** change the decorator to `@bp.route('/user/me')` (the blueprint adds the
+  `/api`). One line. Then re-verify ProviderDispatchModal mounts and receives
+  leads. Worth a quick audit for any other mis-prefixed `@bp.route('/api/...')` in
+  this file.
+- **Phase / priority:** **High** — it silently breaks the provider side of the
+  live marketplace. Small fix; own ticket (kept out of P2-2 for scope hygiene).
+
+---
+
+## R1. [Roadmap / Vision] Two-sided model: lead-gen marketplace + tenant CRM/FMS
+
+**Captured 2026-06-28 as product direction — NOT a near-term ticket. Do NOT pull
+into current Phase 2 work. Each bullet below is its own future design + ticket,
+well beyond Phase 2/3.**
+
+The product is two-sided:
+
+1. **Lead generation** (Quick Books + quote requests) — the **marketplace** side.
+   Revenue from Quick Book admin fees. This is the hook that brings providers in.
+   *Available Leads* (P2-2) is the entry surface here — the provider's **inbox** of
+   incoming marketplace work.
+2. **Full CRM / FMS for tenants** — the **subscription** product where a provider
+   runs their whole business: their OWN self-sourced quotes, staff, jobs, clients,
+   field management. The recurring-revenue product. *Quotes* is the provider's
+   **outbox** — their own outgoing quotes + the quote-creation tool.
+
+This reinforces an **inbox/outbox split**: *Available Leads* = incoming
+marketplace work to claim; *Quotes* = the provider's own outgoing quotes and the
+creation tool.
+
+**CRM features implied (large, deliberate, post-marketplace-foundation):**
+- **Draft-mode quotes** — save an incomplete quote and resume later.
+- **Persistence of in-progress work** — if a provider steps away, the network
+  drops, or they close the device, the system remembers where they left off.
+- **Click-to-reserve** — clicking a quote-request lead in *Available Leads*
+  temporarily **holds** it for that provider while they build the quote, until
+  finished or the lead is gone. (A softer evolution of P2-2's exclusive claim:
+  P2-2 ships a hard claim now; click-to-reserve is the future hold-while-quoting
+  refinement.)
+- **Quote-creation tool lives in *Quotes*** as a CRM surface (the outbox side of
+  the split).
+
+**Phase / priority:** Roadmap direction for after the marketplace foundation
+(Phase 2/3) is complete. Informs framing now; builds later.

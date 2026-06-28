@@ -3362,7 +3362,7 @@ def claim_available_lead(request_id):
 
     return jsonify({"message": "Lead claimed! It's now in your pipeline.", "id": lead.id}), 200
 
-@bp.route('/api/user/me', methods=['GET'])
+@bp.route('/user/me', methods=['GET'])  # api_bp already has url_prefix='/api' -> resolves at /api/user/me
 @login_required
 def get_current_user_info():
     """Returns basic session context so the React frontend knows who is logged in."""

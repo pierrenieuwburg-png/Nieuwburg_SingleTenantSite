@@ -3190,6 +3190,18 @@ def handle_join_tenant_room(data):
         join_room(f"tenant_{tenant_id}")
         print(f"Tenant room connection established for room: tenant_{tenant_id}")
 
+@socketio.on('join_client_job_room')
+def handle_join_client_job_room(data):
+    """Client-side half of Quick Book realtime (P2-1). After a client submits a
+    Quick Book search, the booking modal joins this room so the server's
+    'pro_found' (accept_lead) and 'no_pro_found' (P1-4 timeout sweep) emits to
+    room=client_job_{job_id} actually reach a listener. Without this handler the
+    whole client realtime path is inert."""
+    job_id = data.get('job_id')
+    if job_id:
+        join_room(f"client_job_{job_id}")
+        print(f"Client job room connection established for room: client_job_{job_id}")
+
 # 2. Atomic Endpoint for Claiming the Lead
 @bp.route('/admin/leads/<int:dispatch_id>/accept', methods=['POST'])
 @login_required

@@ -307,3 +307,23 @@ guard; the guest-capable conversion is #8/#9 work.
     customer reassurance — **not** for matching, **not** near-term.
 - **Phase / priority:** Roadmap; depends on the provider-settings surface and
   pairs with radius tuning (#13).
+
+---
+
+## 15. [Tooling] `npm run lint` script is broken (flat-config vs `--ext`)
+
+- **Location:** `nieuwburg/admin-frontend/package.json` `"lint"` script.
+- **Problem:** The script runs `eslint . --ext js,jsx --report-unused-disable-directives
+  --max-warnings 0`, but the installed ESLint uses the new **flat config**
+  (`eslint.config.js`), where `--ext` is no longer valid — so `npm run lint`
+  fails immediately with `Invalid option '--ext'`. Invoking `npx eslint` directly
+  also errors (`ERR_PACKAGE_PATH_NOT_EXPORTED: './config'`), a version-mismatch
+  symptom. Linting is effectively unusable in this repo today.
+- **Risk:** No automated lint gate — style/correctness regressions slip through.
+  `vite build` still validates that JSX/imports compile, but that is not a linter.
+  Unrelated to any feature work; pre-existing.
+- **Fix:** Reconcile the ESLint version with the config style — either drop
+  `--ext` (flat config globs by default; set file patterns in `eslint.config.js`)
+  and align the eslint/plugin versions, or pin a config-compatible ESLint. Then
+  confirm `npm run lint` runs clean.
+- **Phase / priority:** Low (tooling). Worth fixing so linting is usable again.

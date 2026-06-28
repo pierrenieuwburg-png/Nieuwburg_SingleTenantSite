@@ -203,6 +203,25 @@ export const createBooking = async (bookingData) => {
     }
 };
 
+// 11b. Initiate Quick Book payment for a matched job (P1-3 endpoint).
+// Returns { authorization_url } on success. Throws an Error whose `.status`
+// carries the HTTP code — the modal uses 400 (no price set yet, BACKLOG #7) to
+// render the clean "instant payment isn't available yet" terminal message
+// rather than a raw error.
+export const initiateQuickBookPayment = async (jobId) => {
+    const response = await fetch(`${API_BASE}/jobs/${jobId}/initiate-payment`, {
+        method: 'POST',
+        headers: getHeaders()
+    });
+    const result = await response.json();
+    if (!response.ok) {
+        const err = new Error(result.message || 'Could not initialize payment');
+        err.status = response.status;
+        throw err;
+    }
+    return result;
+};
+
 // 12. Create Custom Request (Handles Photo Uploads via FormData)
 export const createCustomRequest = async (formData) => {
     try {

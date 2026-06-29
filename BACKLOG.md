@@ -23,7 +23,15 @@ changes — treat them as starting points, not permanent addresses.
 
 ---
 
-## 2. [P2-3 known] marketplace `/search` endpoint 500s on any result
+## 2. [P2-3 known] marketplace `/search` endpoint 500s on any result — ✅ RESOLVED (commit `02d6167`)
+
+**Fixed:** query is now built once with all joins; `BusinessSettings` is
+outer-joined (services on a settings-less tenant still surface, with the null
+address guarded in the payload); `member_since`/`rating`/`review_count` dropped.
+Verified end-to-end against Postgres — searches with/without a `location` filter
+and a no-settings tenant all return 200, and the trust filters
+(`is_active`, `verification_status == 'verified'`) exclude unverified/inactive
+tenants. Original report below for reference.
 
 - **Location:** `nieuwburg/routes/marketplace.py` (`search_marketplace`, ~lines 9–92).
 - **Problem:** Two defects:
@@ -378,6 +386,20 @@ for reference.
   this file.
 - **Phase / priority:** **High** — it silently breaks the provider side of the
   live marketplace. Small fix; own ticket (kept out of P2-2 for scope hygiene).
+
+---
+
+## 18. [P2-3 follow-up] Render the quote-request section of the Available Leads board
+
+- **Location:** `nieuwburg/admin-frontend/src/.../AvailableLeads.jsx` (frontend only).
+- **Context:** The P2-2 GET already returns **both** `lead_types` (floating
+  Quick Book leads **and** quote requests); the board currently renders only the
+  floating-leads section.
+- **Task:** Display the second section — the quote requests — below the floating
+  leads, **visually distinct** from them, so providers see both kinds of
+  available work. No backend change needed.
+- **Phase / priority:** Phase 2 follow-up — the second half of P2-3's surface,
+  split out so the search-endpoint fix could ship on its own. Frontend-only.
 
 ---
 

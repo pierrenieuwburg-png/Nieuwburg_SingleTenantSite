@@ -6,7 +6,22 @@ changes — treat them as starting points, not permanent addresses.
 
 ---
 
-## 1. [Security] Strip-tenant-filter on QuoteRequest fetch — cross-tenant read
+## 1. [Security] Strip-tenant-filter on QuoteRequest fetch — cross-tenant read — ✅ RESOLVED (commit `0ee70e7`)
+
+**Fixed:** all affected by-id fetches now scope by
+`tenant_id=current_user.tenant_id` and return 404 on miss. The audit found a
+**THIRD** site the original note missed — `api_delete_quote` with `type=quote`
+performed a **destructive cross-tenant `Quote` deletion** (plus its line items),
+not just the two `QuoteRequest` reads/deletes — so the fix covered **all three
+sites**, closing the whole class:
+- `get_quote_detail` (GET `/admin/quotes/<id>`) — cross-tenant READ.
+- `api_delete_quote` `type=request` — cross-tenant DELETE of a `QuoteRequest`.
+- `api_delete_quote` `type=quote` — cross-tenant DELETE of a `Quote` (+ line items). *(the missed third site)*
+
+The deliberately cross-tenant marketplace paths (`get_available_leads` floating
+board, `claim_available_lead`) were left untouched. Verified against Postgres
+(16/16: own read/delete work; cross-tenant read/delete → 404 with the target row
+intact; floating board + claim unaffected). Original report below for reference.
 
 - **Location:** `nieuwburg/routes/api.py:262` and `nieuwburg/routes/api.py:645`
   (both marked `# DIAGNOSTIC\MVP MODE: Strip Tenant Filter`).

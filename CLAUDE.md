@@ -8,6 +8,8 @@ Nieuwburg Blitz is a single-tenant cleaning-service CRM (South Africa, SAST/ZAR)
 
 **Read `Nieuwburg_Blitz_Remediation_Plan.md` before starting any backend task.** It is the sequenced source of truth for what is being changed and in what order. Much of the current code is single-tenant CRM with marketplace scaffolding layered on top; several "current shape" patterns described below are landmines actively being removed, not patterns to extend. Where this file says **[BEING CHANGED — see <ticket>]**, do not propagate the existing pattern into new code.
 
+Read `Nieuwburg_Blitz_Status_and_Roadmap.md` alongside the remediation plan — it captures the current state and the tiered road to launch.
+
 ## Commands
 
 All Python commands require the virtualenv active (`.venv`). `FLASK_APP=run.py` is set via `.flaskenv`.

@@ -25,25 +25,21 @@ function Staff() {
 
   // Function to fetch staff
   const fetchStaff = useCallback(async (query = '') => {
-    console.log(`Staff Component: fetchStaff called with query: "${query}"`); // Log fetch call
     setIsLoading(true);
     setError(null);
     try {
       const response = await fetch(`/api/admin/staff/search?q=${encodeURIComponent(query)}`);
-      console.log(`Staff Component: fetch response status: ${response.status}`); // Log response status
       if (!response.ok) {
         if (response.status === 403) throw new Error('Permission denied fetching staff.');
         throw new Error(`HTTP error fetching staff! status: ${response.status}`);
       }
       const data = await response.json();
-      console.log('Staff Component: fetch successful, setting staff list.'); // Log success
       setStaffList(data);
     } catch (err) {
       console.error('Staff Component: Error fetching staff:', err); // Log error
       setError(`Error loading staff: ${err.message}`);
       setStaffList([]);
     } finally {
-      console.log('Staff Component: fetch finished, setting isLoading to false.'); // Log finally block
       setIsLoading(false);
     }
   }, []); // useCallback depends on nothing external here, so empty array is correct
@@ -53,16 +49,12 @@ function Staff() {
 
   // Effect for initial load and search term changes
   useEffect(() => {
-    // Log exactly when the effect runs and what the searchTerm is
-    console.log(`Staff Component: useEffect triggered. Search Term: "${searchTerm}"`);
     debouncedFetchStaff(searchTerm);
-
   }, [searchTerm, debouncedFetchStaff]); // Keep dependencies as searchTerm and the debounced function
 
   // Effect to clear flash message (keep as is)
    useEffect(() => {
     if (flashMessage) {
-       console.log('Staff Component: Flash message effect running.');
       const timer = setTimeout(() => setFlashMessage(null), 4000);
       return () => clearTimeout(timer);
     }
@@ -93,7 +85,6 @@ function Staff() {
 
 
   // --- Render Logic ---
-  console.log('Staff Component: Preparing to render JSX');
   return (
     <div>
       {/* ... (rest of the JSX remains the same as the previous full version) ... */}

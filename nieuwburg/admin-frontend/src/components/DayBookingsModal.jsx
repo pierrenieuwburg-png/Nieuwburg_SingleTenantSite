@@ -69,7 +69,6 @@ function DayBookingsModal({ isOpen, onClose, selectedDate, onBookingDeleted, onE
 
   // Click handler for the main booking item (Phase 2)
   const handleEditClick = (jobId) => {
-      console.log("Edit clicked for job:", jobId);
       if (onEditBooking) {
           onEditBooking(jobId); // Call the function passed from Bookings.jsx
       }

@@ -7,6 +7,7 @@ function Invoices() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [csrfToken, setCsrfToken] = useState("");
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Handle flash messages
   const location = useLocation();
@@ -90,6 +91,17 @@ function Invoices() {
     }
   };
 
+  // Client-side live filter: invoices are already loaded, so filter in memory
+  // (no extra request). Matches against invoice #, client name, and status.
+  const query = searchTerm.trim().toLowerCase();
+  const filteredInvoices = query
+    ? invoices.filter((inv) =>
+        (inv.invoice_number || '').toLowerCase().includes(query) ||
+        (inv.client_name || '').toLowerCase().includes(query) ||
+        (inv.status || '').toLowerCase().includes(query)
+      )
+    : invoices;
+
   if (isLoading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', padding: '100px' }}>
@@ -122,6 +134,19 @@ function Invoices() {
           <Link to="/quotes" className="cta-outline" style={{marginTop: '10px', display: 'inline-block'}}>Go to Quotes</Link>
         </div>
       ) : (
+        <>
+        <div className="form-group" style={{ marginBottom: '20px', maxWidth: '400px' }}>
+          <label htmlFor="invoice-search" className="form-label">Search Invoices</label>
+          <input
+            type="text"
+            id="invoice-search"
+            className="form-control"
+            placeholder="Search by invoice #, client, or status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+
         <div className="table-container">
           <table className="data-table">
             <thead>
@@ -136,7 +161,13 @@ function Invoices() {
               </tr>
             </thead>
             <tbody>
-              {invoices.map((inv) => (
+              {filteredInvoices.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                    No invoices match your search.
+                  </td>
+                </tr>
+              ) : filteredInvoices.map((inv) => (
                 <tr key={inv.id}>
                   <td style={{fontWeight: 600, color: '#002244'}}>
                     {inv.invoice_number}
@@ -194,6 +225,7 @@ function Invoices() {
             </tbody>
           </table>
         </div>
+        </>
       )}
     </div>
   );

@@ -52,3 +52,12 @@ class Config:
     DISPATCH_SWEEPER_ENABLED = os.environ.get('DISPATCH_SWEEPER_ENABLED', 'true').lower() in ['true', 'on', '1']
     # How often the sweeper tick runs, in seconds.
     DISPATCH_SWEEPER_INTERVAL_SECONDS = int(os.environ.get('DISPATCH_SWEEPER_INTERVAL_SECONDS', 12))
+
+    # --- Frontend asset loading (SPA shells) ---
+    # When true, the SPA shells (admin_base.html, client_dashboard.html) load React
+    # from the Vite dev server for hot-reload during frontend development (requires
+    # `npm run dev` on :5173). When false (the DEFAULT), they load the built bundle
+    # from static/admin-assets/index.js — required to run on Flask alone, e.g. in
+    # production or when running `python run.py` without the Vite dev server.
+    VITE_DEV_SERVER = os.environ.get('VITE_DEV_SERVER', 'false').lower() in ['true', 'on', '1']
+    VITE_DEV_SERVER_URL = os.environ.get('VITE_DEV_SERVER_URL', 'http://localhost:5173')

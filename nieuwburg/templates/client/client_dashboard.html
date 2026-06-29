@@ -11,6 +11,11 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    {% if not config.VITE_DEV_SERVER %}
+    {# Prod: the built bundle's CSS (in dev, Vite injects styles via the JS). #}
+    <link rel="stylesheet" href="{{ url_for('static', filename='admin-assets/index.css') }}">
+    {% endif %}
+
     <style>
       html, body { margin: 0; padding: 0; height: 100%; font-family: 'Inter', sans-serif; background-color: #f8f9fa; }
       #root { height: 100%; }
@@ -19,15 +24,21 @@
   <body>
     <div id="root"></div>
 
+    {% if config.VITE_DEV_SERVER %}
+    {# Dev: load React from the Vite dev server for hot-reload (needs `npm run dev` on :5173). #}
     <script type="module">
-      import RefreshRuntime from 'http://localhost:5173/@react-refresh'
+      import RefreshRuntime from '{{ config.VITE_DEV_SERVER_URL }}/@react-refresh'
       RefreshRuntime.injectIntoGlobalHook(window)
       window.$RefreshReg$ = () => {}
       window.$RefreshSig$ = () => (type) => type
       window.__vite_plugin_react_preamble_installed__ = true
     </script>
 
-    <script type="module" src="http://localhost:5173/@vite/client"></script>
-    <script type="module" src="http://localhost:5173/src/main.jsx"></script>
+    <script type="module" src="{{ config.VITE_DEV_SERVER_URL }}/@vite/client"></script>
+    <script type="module" src="{{ config.VITE_DEV_SERVER_URL }}/src/main.jsx"></script>
+    {% else %}
+    {# Prod: load the built bundle so the SPA runs on Flask alone (no Vite needed). #}
+    <script type="module" src="{{ url_for('static', filename='admin-assets/index.js') }}"></script>
+    {% endif %}
   </body>
 </html>

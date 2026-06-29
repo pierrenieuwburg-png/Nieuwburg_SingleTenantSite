@@ -4,6 +4,7 @@ function Applications() {
   const [applications, setApplications] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchApplications = async () => {
@@ -36,6 +37,18 @@ function Applications() {
     return `/static/uploads/${filename}`;
   };
 
+  // Client-side live filter: applications are already loaded, so filter in memory
+  // (no extra request). Matches against name, email, phone, and ID number.
+  const query = searchTerm.trim().toLowerCase();
+  const filteredApplications = query
+    ? applications.filter((app) =>
+        (app.full_name || '').toLowerCase().includes(query) ||
+        (app.email || '').toLowerCase().includes(query) ||
+        (app.phone_number || '').toLowerCase().includes(query) ||
+        (app.id_number || '').toLowerCase().includes(query)
+      )
+    : applications;
+
   return (
     <div>
       <div className="admin-header">
@@ -49,6 +62,21 @@ function Applications() {
         ) : error ? (
            <p style={{ color: 'red' }}>{error}</p>
         ) : (
+          <>
+          {applications.length > 0 && (
+            <div className="form-group" style={{ marginBottom: '20px', maxWidth: '400px' }}>
+              <label htmlFor="application-search" className="form-label">Search Applications</label>
+              <input
+                type="text"
+                id="application-search"
+                className="form-control"
+                placeholder="Search by name, email, phone, or ID number..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          )}
+
           <table className="data-table">
             <thead>
               <tr>
@@ -60,8 +88,20 @@ function Applications() {
               </tr>
             </thead>
             <tbody>
-              {applications.length > 0 ? (
-                applications.map((app) => (
+              {applications.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                    No applications have been submitted yet.
+                  </td>
+                </tr>
+              ) : filteredApplications.length === 0 ? (
+                <tr>
+                  <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
+                    No applications match your search.
+                  </td>
+                </tr>
+              ) : (
+                filteredApplications.map((app) => (
                   <tr key={app.id}>
                     <td>{app.submission_date}</td>
                     <td>{app.full_name}</td>
@@ -92,15 +132,10 @@ function Applications() {
                     </td>
                   </tr>
                 ))
-              ) : (
-                <tr>
-                  <td colSpan="5" style={{ textAlign: 'center', padding: '20px' }}>
-                    No applications have been submitted yet.
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
+          </>
         )}
       </div>
     </div>

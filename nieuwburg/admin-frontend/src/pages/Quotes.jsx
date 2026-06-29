@@ -8,6 +8,7 @@ function Quotes() {
   const [quotes, setQuotes] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
   
   // --- ADDITIONS ---
   const location = useLocation();
@@ -134,6 +135,19 @@ function Quotes() {
     }
   };
 
+  // Client-side live filter: quotes are already loaded, so filter in memory
+  // (no extra request). Matches against client, service, status, and frequency.
+  const query = searchTerm.trim().toLowerCase();
+  const filteredQuotes = query
+    ? quotes.filter((q) =>
+        (q.client_name || '').toLowerCase().includes(query) ||
+        (q.service || '').toLowerCase().includes(query) ||
+        (q.status || '').toLowerCase().includes(query) ||
+        (q.frequency || '').toLowerCase().includes(query) ||
+        (q.property_type || '').toLowerCase().includes(query)
+      )
+    : quotes;
+
   return (
     <div>
       <div className="admin-header">
@@ -164,11 +178,24 @@ function Quotes() {
             <BarLoader color="#4A90E2" width="50%" />
           </div>
         ) : quotes.length > 0 ? (
+          <>
+          <div className="form-group" style={{ marginBottom: '20px', maxWidth: '400px' }}>
+            <label htmlFor="quote-search" className="form-label">Search Quotes</label>
+            <input
+              type="text"
+              id="quote-search"
+              className="form-control"
+              placeholder="Search by client, service, status, or frequency..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
           <table className="data-table">
             <thead>
               <tr>
                 {/* These headers match your provided file */}
-                <th>Requested On</th> 
+                <th>Requested On</th>
                 <th>Client</th>
                 <th>Service</th>
                 <th>Frequency</th>
@@ -178,7 +205,13 @@ function Quotes() {
               </tr>
             </thead>
             <tbody>
-              {quotes.map((quote) => (
+              {filteredQuotes.length === 0 ? (
+                <tr>
+                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                    No quotes match your search.
+                  </td>
+                </tr>
+              ) : filteredQuotes.map((quote) => (
                 <tr key={quote.list_id}> {/* <-- Use list_id for unique key */}
                   <td data-label="Requested On">{quote.request_date}</td>
                   <td data-label="Client">
@@ -214,6 +247,7 @@ function Quotes() {
               ))}
             </tbody>
           </table>
+          </>
         ) : (
           <p>No quote requests found.</p>
         )}

@@ -4,6 +4,7 @@ function ActivityLog() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const fetchActivityLogs = async () => {
@@ -32,6 +33,17 @@ function ActivityLog() {
     fetchActivityLogs();
   }, []); // Run once on mount
 
+  // Client-side live filter: logs are already loaded, so filter in memory
+  // (no extra request). Matches against timestamp, user, and description.
+  const query = searchTerm.trim().toLowerCase();
+  const filteredLogs = query
+    ? logs.filter((log) =>
+        (log.timestamp || '').toLowerCase().includes(query) ||
+        (log.user_email || '').toLowerCase().includes(query) ||
+        (log.description || '').toLowerCase().includes(query)
+      )
+    : logs;
+
   return (
     <div>
       <div className="admin-header">
@@ -50,6 +62,19 @@ function ActivityLog() {
         {isLoading ? (
           <p>Loading activity logs...</p>
         ) : logs.length > 0 ? (
+          <>
+          <div className="form-group" style={{ marginBottom: '20px', maxWidth: '400px' }}>
+            <label htmlFor="activity-search" className="form-label">Search Activity</label>
+            <input
+              type="text"
+              id="activity-search"
+              className="form-control"
+              placeholder="Search by user, action, or timestamp..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+
           <table className="data-table">
             <thead>
               <tr>
@@ -59,7 +84,13 @@ function ActivityLog() {
               </tr>
             </thead>
             <tbody>
-              {logs.map((log, index) => (
+              {filteredLogs.length === 0 ? (
+                <tr>
+                  <td colSpan="3" style={{ textAlign: 'center', padding: '20px' }}>
+                    No activity matches your search.
+                  </td>
+                </tr>
+              ) : filteredLogs.map((log, index) => (
                 <tr key={index}> {/* Use index if no unique ID is available */}
                   <td>{log.timestamp}</td>
                   <td>{log.user_email}</td>
@@ -68,6 +99,7 @@ function ActivityLog() {
               ))}
             </tbody>
           </table>
+          </>
         ) : (
           <p>No recent activity found.</p>
         )}

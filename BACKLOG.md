@@ -351,7 +351,14 @@ guard; the guest-capable conversion is #8/#9 work.
 
 ---
 
-## 17. [Bug] `/api/user/me` is double-prefixed → ProviderDispatchModal never mounts
+## 17. [Bug] `/api/user/me` is double-prefixed → ProviderDispatchModal never mounts — ✅ RESOLVED (commit `7618acd`)
+
+**Fixed:** decorator changed to `@bp.route('/user/me')` so it resolves at
+`/api/user/me`. Verified end-to-end (200 + `tenant_id` delivered, frontend mount
+gate true, and a joined tenant-room client receives `incoming_lead`). Audit
+confirmed it was the sole double-prefixed route on `api_bp`. Original report below
+for reference.
+
 
 - **Location:** `nieuwburg/routes/api.py` `get_current_user_info` declared
   `@bp.route('/api/user/me')`, but `api_bp` is registered with `url_prefix='/api'`

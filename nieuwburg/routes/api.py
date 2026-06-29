@@ -259,8 +259,8 @@ def get_quote_detail(quote_id):
         return jsonify({"message": "Permission denied"}), 403
 
     try:
-        # DIAGNOSTIC/MVP MODE: Strip Tenant Filter
-        quote = QuoteRequest.query.filter_by(id=quote_id).first()
+        # TENANT AWARE — scope by tenant so one tenant can't read another's lead (BACKLOG #1)
+        quote = QuoteRequest.query.filter_by(id=quote_id, tenant_id=current_user.tenant_id).first()
         
         if not quote:
             return jsonify({"message": "Quote request not found"}), 404
@@ -642,8 +642,8 @@ def api_delete_quote(item_id):
     
     try:
         if item_type == 'request':
-            # DIAGNOSTIC/MVP MODE: Strip Tenant Filter
-            quote_req = QuoteRequest.query.filter_by(id=item_id).first()
+            # TENANT AWARE — scope by tenant so one tenant can't delete another's request (BACKLOG #1)
+            quote_req = QuoteRequest.query.filter_by(id=item_id, tenant_id=current_user.tenant_id).first()
 
             if not quote_req:
                 return jsonify({"message": "Quote Request not found"}), 404
@@ -657,8 +657,8 @@ def api_delete_quote(item_id):
             )
             
         elif item_type == 'quote':
-            # DIAGNOSTIC/MVP MODE: Strip Tenant Filter
-            quote = Quote.query.filter_by(id=item_id).first()
+            # TENANT AWARE — scope by tenant so one tenant can't delete another's quote (BACKLOG #1)
+            quote = Quote.query.filter_by(id=item_id, tenant_id=current_user.tenant_id).first()
 
             if not quote:
                 return jsonify({"message": "Formal Quote not found"}), 404

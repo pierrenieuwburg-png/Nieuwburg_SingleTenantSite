@@ -142,7 +142,21 @@ tenants. Original report below for reference.
 
 ---
 
-## 7. [P1-3 prerequisite] Master-admin Quick Book pricing catalog + frequency capture
+## 7. [P1-3 prerequisite] Master-admin Quick Book pricing catalog + frequency capture (= feature **F2**)
+
+> **⚑ Design note:** scoping #7 surfaced the wider master-admin/platform model.
+> See `Nieuwburg_Blitz_MasterAdmin_and_Pricing_Design.md` for the locked decisions
+> (F1–F6, the unified service-item model, the 4A sequencing). Key corrections to
+> the original text below: pricing/bookability live at the **service-item** level,
+> **not** per category (design decisions #3/#7); pricing is master-admin-set via a
+> proper `master_admin` role, **not** "HQ = a tenant"; "one-off-with-inputs" is
+> **deferred** to its own ticket (first version = frequency-based + one-off-flat).
+>
+> **Increment breakdown (4A):** (1) **F1** minimal master-admin role →
+> (2) pricing data model (unified item model + Quick Book price rows +
+> `resolve_price_for_job` + `Job` frequency/item capture + seed) →
+> (3) **F3** master-admin item-management UI → then F5/F4/F6. Each its own
+> scoped increment.
 
 - **Location:** new master-admin/HQ feature; consumed by the Quick Book
   payment-init seam in `nieuwburg/routes/client.py` (P1-3) and by
@@ -415,6 +429,61 @@ for reference.
   available work. No backend change needed.
 - **Phase / priority:** Phase 2 follow-up — the second half of P2-3's surface,
   split out so the search-endpoint fix could ship on its own. Frontend-only.
+
+---
+
+## Platform features (F-series — from the master-admin design note)
+
+These fall out of `Nieuwburg_Blitz_MasterAdmin_and_Pricing_Design.md` (decisions
+#1–#8, unified service-item model, 4A sequencing). **F2** = #7 (pricing catalog);
+**F3** = the master-admin item-management UI (a later increment of #7). The rest
+are tracked here. Sequence per the design note's §4/§5.
+
+### F1. Master-admin role (foundation) 🔑
+
+- **What:** Model the platform owner as a distinct `'master_admin'` role with
+  **no `tenant_id`** (the `User.role` column already supports this) + a small
+  `is_master_admin(user)` helper/decorator gating platform-level surfaces.
+  Retire the "HQ = first Tenant" remnant. **Replaces** the earlier
+  `Tenant.is_platform_owner` stopgap.
+- **Why:** Bedrock for everything platform-level (pricing CRUD, review queue,
+  platform area). Per design decision #1 (master admin is a role, not a tenant).
+- **Phase / priority:** **Near-term foundation — first increment under 4A**, ahead
+  of the pricing data model. Aligns with [[#9]] (identity model). See the design
+  note §3/§4.
+
+### F4. Tenant service-item creation + master-admin review queue
+
+- **What:** Providers add service items/categories via setup/business settings;
+  items enter **quote-only** and **`pending`**; master admin approves/rejects
+  before they go live (publicly visible).
+- **Why:** Real moderation gate — a provider must not publish arbitrary/
+  inappropriate services to a public marketplace (design decision #4).
+- **Phase / priority:** **Pre-launch necessity** for a public marketplace.
+  Depends on F1 (the role) and the unified item model (F2). Its own design + ticket.
+
+### F5. Service-discovery surface ("What services do you need?")
+
+- **What:** A call-to-action section on the landing page + client dashboard
+  showing available services as tiles (Cleaning, Plumbing, Gardener, …), fed by
+  the approved/active items in the unified service-item model.
+- **Why:** The client-facing entry into the marketplace; a display surface, not a
+  new engine (design decision/§3 F5).
+- **Phase / priority:** A basic version is likely pre-launch; depends on the item
+  model (F2) and benefits from the review gate (F4). Its own scoped ticket.
+
+### F6. Master-admin platform area + privacy model
+
+- **What:** The master-admin's own dashboard/sections for running the *platform*
+  (Quick Book catalog mgmt, analytics/insights, blog/content, the review queue);
+  repurpose tenant-admin surfaces that don't apply (e.g. the bookings calendar).
+  **Plus** the privacy/permission model: master admin must NOT see tenants'/
+  end-users' sensitive data (private client lists, earnings, banking, passwords).
+- **Why:** Platform owner ≠ god-mode (design decision #6) — an ethical/legal
+  constraint and a first-class requirement, not an afterthought.
+- **Phase / priority:** Larger; likely several increments. The **core privacy
+  rules are pre-launch**; the fuller analytics/insights/blog tooling can be
+  leaner/post-launch. Gated by F1. See the design note §5.
 
 ---
 

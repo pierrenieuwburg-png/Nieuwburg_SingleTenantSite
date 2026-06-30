@@ -10,6 +10,8 @@ Nieuwburg Blitz is a single-tenant cleaning-service CRM (South Africa, SAST/ZAR)
 
 Read `Nieuwburg_Blitz_Status_and_Roadmap.md` alongside the remediation plan — it captures the current state and the tiered road to launch.
 
+Read `Nieuwburg_Blitz_MasterAdmin_and_Pricing_Design.md` before any master-admin / Quick Book pricing work — it locks the platform-owner role, unified service-item model, and the F1–F6 / 4A sequencing that #7 builds on.
+
 ## Commands
 
 All Python commands require the virtualenv active (`.venv`). `FLASK_APP=run.py` is set via `.flaskenv`.

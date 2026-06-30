@@ -22,6 +22,33 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
+# --- Master-Admin (platform owner) gate (F1) ---
+# The master admin runs the PLATFORM and is NOT a tenant: a 'master_admin' role
+# with NO tenant_id (see Nieuwburg_Blitz_MasterAdmin_and_Pricing_Design.md, F1).
+# Distinct from admin_required (which gates tenant-scoped admin surfaces).
+def is_master_admin(user):
+    """True only for the platform owner: role 'master_admin' AND no tenant_id."""
+    return (
+        getattr(user, 'is_authenticated', False)
+        and user.role == 'master_admin'
+        and user.tenant_id is None
+    )
+
+
+def master_admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not is_master_admin(current_user):
+            # JSON for API callers, redirect for page loads — mirror the app's
+            # existing 403 conventions.
+            if request.path.startswith('/api') or request.path.startswith('/admin/api'):
+                return jsonify({"message": "Master-admin access required."}), 403
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('main.index'))
+        return f(*args, **kwargs)
+    return decorated_function
+
 # --- Server-Side Admin Actions ---
 @bp.route('/staff/delete/<int:user_id>', methods=['POST'])
 @admin_required

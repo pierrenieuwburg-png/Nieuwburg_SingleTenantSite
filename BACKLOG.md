@@ -432,6 +432,26 @@ for reference.
 
 ---
 
+## 19. [Tech debt] Quick Book frequency set duplicated in 3 places
+
+- **Location:** `nieuwburg/routes/master.py` `ALLOWED_FREQUENCIES` (authoritative —
+  validates catalogue price rows), `admin-frontend/src/components/master/MasterServiceModal.jsx`
+  (the master item-editor dropdown), and `admin-frontend/src/components/ClientBookingModal.jsx`
+  (hardcoded `<option>`s the client submits).
+- **Problem:** The three copies match today (`Once-off` / `Weekly` / `Bi-Weekly`
+  / `Monthly`, verified character-for-character), but a future edit to one that
+  misses the others would **silently break price resolution**: the client would
+  send a frequency with no matching `MarketplaceServicePrice` row, so
+  `resolve_price_for_job` returns `None` and payment-init **refuses** — no error,
+  just a booking that can't be paid.
+- **Fix (someday):** single source of truth — e.g. serve the allowed set from the
+  backend (a small endpoint or bootstrap payload) and have both React surfaces
+  consume it, or share one constant. Removes the drift risk.
+- **Phase / priority:** **Low — correctness-adjacent, not a current bug.** Worth
+  doing before the frequency set changes or grows.
+
+---
+
 ## Platform features (F-series — from the master-admin design note)
 
 These fall out of `Nieuwburg_Blitz_MasterAdmin_and_Pricing_Design.md` (decisions

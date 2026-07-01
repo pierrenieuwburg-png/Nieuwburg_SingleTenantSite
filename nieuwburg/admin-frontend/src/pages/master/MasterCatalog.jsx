@@ -1,20 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { BarLoader } from 'react-spinners';
-import { listServices } from '../../services/masterApi';
+import { listServices, deleteService, toggleActive } from '../../services/masterApi';
+import MasterServiceModal from '../../components/master/MasterServiceModal';
 
-// F3a: read-only Quick Book catalogue list. Create/edit (the item modal) is F3b.
+// Quick Book catalogue: list + create/edit modal + activate/deactivate + delete (F3b).
 function MasterCatalog() {
   const [services, setServices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  const refresh = () =>
+    listServices().then(setServices).catch((err) => setError(err.message));
 
   useEffect(() => {
-    listServices()
-      .then(setServices)
-      .catch((err) => setError(err.message))
-      .finally(() => setIsLoading(false));
+    refresh().finally(() => setIsLoading(false));
   }, []);
+
+  const openCreate = () => { setEditing(null); setModalOpen(true); };
+  const openEdit = (svc) => { setEditing(svc); setModalOpen(true); };
+  const onSaved = () => { setModalOpen(false); setEditing(null); refresh(); };
+
+  const handleToggle = async (svc) => {
+    try { await toggleActive(svc.id); refresh(); }
+    catch (err) { alert(err.message); }
+  };
+
+  const handleDelete = async (svc) => {
+    if (!window.confirm(`Delete "${svc.name}"? This cannot be undone.`)) return;
+    try { await deleteService(svc.id); refresh(); }
+    catch (err) { alert(err.message); }  // 409 "used by jobs — deactivate instead"
+  };
 
   const priceSummary = (svc) => {
     if (svc.pricing_mode === 'flat') {
@@ -49,8 +67,7 @@ function MasterCatalog() {
     <div>
       <div className="admin-header">
         <h1>Quick Book Catalogue</h1>
-        {/* Create/edit lands in F3b. */}
-        <button className="cta" disabled title="Item creation lands in F3b">New Item</button>
+        <button className="cta" onClick={openCreate}>New Item</button>
       </div>
 
       {error && <p className="error-message">{error}</p>}
@@ -84,12 +101,13 @@ function MasterCatalog() {
                 <th>Price</th>
                 <th>Active</th>
                 <th>Review</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan="7" style={{ textAlign: 'center', padding: '20px' }}>
+                  <td colSpan="8" style={{ textAlign: 'center', padding: '20px' }}>
                     No items match your search.
                   </td>
                 </tr>
@@ -106,6 +124,17 @@ function MasterCatalog() {
                       {svc.review_status}
                     </span>
                   </td>
+                  <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <button className="cta-outline-small" onClick={() => openEdit(svc)}>Edit</button>
+                    {' '}
+                    <button className="cta-outline-small" onClick={() => handleToggle(svc)}>
+                      {svc.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                    {' '}
+                    <button className="icon-btn delete-btn" title="Delete" onClick={() => handleDelete(svc)}>
+                      <i className="fa-solid fa-trash"></i>
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -113,6 +142,13 @@ function MasterCatalog() {
         </div>
         </>
       )}
+
+      <MasterServiceModal
+        isOpen={modalOpen}
+        service={editing}
+        onClose={() => { setModalOpen(false); setEditing(null); }}
+        onSaved={onSaved}
+      />
     </div>
   );
 }

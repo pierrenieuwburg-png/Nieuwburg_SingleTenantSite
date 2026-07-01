@@ -1,10 +1,65 @@
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
 from sqlalchemy.orm import joinedload
-from ..models import ServiceItem, Tenant, BusinessSettings, ServiceCategory
+from ..models import ServiceItem, Tenant, BusinessSettings, ServiceCategory, MarketplaceService
 from .. import db
 
 bp = Blueprint('marketplace', __name__, url_prefix='/api/marketplace')
+
+
+def _public_service(svc):
+    """DISPLAY-SAFE serializer for the public discovery surface (F5).
+
+    Deliberately SEPARATE from master.py's _serialize — it must NEVER leak
+    master-admin internals (created_by_tenant_id, review_status, is_active). It
+    exposes only what a tile needs: name, category, bookability, and pricing for
+    display.
+    """
+    if svc.pricing_mode == 'flat':
+        from_price = svc.flat_price
+        price_display = f"R{svc.flat_price:.2f}" if svc.flat_price else None
+        prices = []
+    elif svc.pricing_mode == 'frequency':
+        prices = [{"frequency": p.frequency, "price": p.price} for p in svc.prices]
+        vals = [p.price for p in svc.prices if p.price is not None]
+        from_price = min(vals) if vals else None
+        price_display = f"From R{from_price:.2f}" if from_price else None
+    else:
+        from_price = None
+        price_display = None
+        prices = []
+
+    return {
+        "name": svc.name,
+        "category": svc.category,
+        "is_quick_bookable": svc.is_quick_bookable,
+        "pricing_mode": svc.pricing_mode,
+        "flat_price": svc.flat_price,
+        "prices": prices,
+        "from_price": from_price,
+        "price_display": price_display,
+    }
+
+
+@bp.route('/services', methods=['GET'])
+def public_marketplace_services():
+    """Public, UNGATED read of the platform Quick Book catalogue for the client
+    discovery surface (F5). Uses its own display-safe serializer (NOT master's).
+
+    Filters is_active AND review_status == 'approved' — this also enforces that
+    F4's future PENDING tenant-created items stay OFF the public site until a
+    master admin approves them.
+    """
+    services = (
+        MarketplaceService.query
+        .filter(
+            MarketplaceService.is_active == True,   # noqa: E712
+            MarketplaceService.review_status == 'approved',
+        )
+        .order_by(MarketplaceService.name)
+        .all()
+    )
+    return jsonify([_public_service(s) for s in services]), 200
 
 @bp.route('/search', methods=['GET'])
 def search_marketplace():

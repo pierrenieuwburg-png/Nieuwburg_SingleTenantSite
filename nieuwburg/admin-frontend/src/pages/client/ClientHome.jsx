@@ -12,6 +12,7 @@ import { useNavigate } from 'react-router-dom';
 // --- MODAL IMPORTS ---
 import ClientBookingModal from '../../components/ClientBookingModal';
 import CustomRequestModal from '../../components/client/CustomRequestModal';
+import ServiceDiscovery from '../../components/client/ServiceDiscovery';
 
 const ClientHome = () => {
     const navigate = useNavigate();
@@ -33,6 +34,13 @@ const ClientHome = () => {
     // --- ROUTING HANDLERS ---
     const openBooking = (service) => setBookingModal({ open: true, service });
     const openCustomRequest = (category) => setCustomRequestModal({ open: true, category });
+
+    // F5: a discovery tile routes to the right EXISTING flow based on the item.
+    // Quick-bookable -> Quick Book modal; otherwise -> the quote-request modal.
+    const handleServiceSelect = (svc) => {
+        if (svc.is_quick_bookable) openBooking(svc.name);
+        else openCustomRequest(svc.name);
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -115,30 +123,9 @@ const ClientHome = () => {
                 </div>
             )}
 
-            <section className="service-dock-section">
-                <h2 className="section-heading">Start a new request</h2>
-                <div className="service-dock">
-                    {/* STANDARD BOOKING TRIGGERS */}
-                    <button className="service-card" onClick={() => openBooking('Cleaning')}>
-                        <div className="icon-box clean"><FaBroom /></div>
-                        <span>Cleaning</span>
-                    </button>
-                    <button className="service-card" onClick={() => openBooking('Gardening')}>
-                        <div className="icon-box garden"><FaTree /></div>
-                        <span>Gardening</span>
-                    </button>
-                    
-                    {/* MARKETPLACE LIVE-LEAD TRIGGERS */}
-                    <button className="service-card" onClick={() => openCustomRequest('Maintenance')}>
-                        <div className="icon-box fix"><FaTools /></div>
-                        <span>Maintenance</span>
-                    </button>
-                    <button className="service-card new" onClick={() => openCustomRequest('Other')}>
-                        <div className="icon-box add"><FaPlus /></div>
-                        <span>Other</span>
-                    </button>
-                </div>
-            </section>
+            {/* F5: catalogue-driven discovery tiles (replaces the hardcoded set).
+                Routes each tile to the existing Quick Book / quote-request modal. */}
+            <ServiceDiscovery onSelect={handleServiceSelect} />
 
             <div className="dashboard-split-layout">
                 <div className="layout-main">

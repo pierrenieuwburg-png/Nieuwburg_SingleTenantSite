@@ -222,6 +222,19 @@ export const initiateQuickBookPayment = async (jobId) => {
     return result;
 };
 
+// 11c. Public platform Quick Book catalogue for the discovery surface (F5).
+// Ungated public read (no login/CSRF needed) — display-safe fields only.
+export const getMarketplaceServices = async () => {
+    try {
+        const response = await fetch(`${SHARED_API}/marketplace/services`, { method: 'GET' });
+        if (!response.ok) throw new Error('Failed to fetch services');
+        return await response.json();
+    } catch (error) {
+        console.error("Client API Error:", error);
+        return [];
+    }
+};
+
 // 12. Create Custom Request (Handles Photo Uploads via FormData)
 export const createCustomRequest = async (formData) => {
     try {

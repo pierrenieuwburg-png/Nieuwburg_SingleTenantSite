@@ -485,6 +485,24 @@ are tracked here. Sequence per the design note's §4/§5.
   rules are pre-launch**; the fuller analytics/insights/blog tooling can be
   leaner/post-launch. Gated by F1. See the design note §5.
 
+### F7. Service catalogue population + answer-driven pricing (rule engine)
+
+- **What:** Populate the catalogue over time and build the answer-driven pricing
+  it implies — the reusable 6-type question toolkit (tile-grid, segmented select,
+  number stepper, quantity counter, yes/no, photo/note), per-service question
+  sets, and the **price-factor rule engine** where answers drive the price
+  (home-size → hours, extras add-ons, running price bar, etc.).
+- **Design reference:** `service-catalogue-design.md` (root) — the two lists,
+  shared-skeleton bones, the question-type toolkit, and per-service question sets
+  + price factors. This is the spec for F7.
+- **Relationship to #7:** #7's data-model increment stores a **flat or per-frequency
+  price** per `MarketplaceService` only. **Answer-driven pricing is explicitly NOT
+  in #7** — it is F7. The #7 model is the substrate F7's rule engine will price
+  against.
+- **Phase / priority:** Post the #7 pricing foundation; large, ongoing. Its own
+  design (the reference doc) + sequenced tickets. Includes the deferred
+  "one-off-with-inputs" pricing mode.
+
 ---
 
 ## R1. [Roadmap / Vision] Two-sided model: lead-gen marketplace + tenant CRM/FMS

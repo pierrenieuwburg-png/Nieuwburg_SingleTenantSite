@@ -12,6 +12,8 @@ Read `Nieuwburg_Blitz_Status_and_Roadmap.md` alongside the remediation plan — 
 
 Read `Nieuwburg_Blitz_MasterAdmin_and_Pricing_Design.md` before any master-admin / Quick Book pricing work — it locks the platform-owner role, unified service-item model, and the F1–F6 / 4A sequencing that #7 builds on.
 
+Read `service-catalogue-design.md` before catalogue-population / answer-driven pricing work (F7) — the two lists, shared-skeleton, 6-type question toolkit, and per-service question sets + price factors. It is the F7 spec; not the #7 data-model increment's scope.
+
 ## Commands
 
 All Python commands require the virtualenv active (`.venv`). `FLASK_APP=run.py` is set via `.flaskenv`.

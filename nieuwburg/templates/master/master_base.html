@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>Platform Admin - Nieuwburg Blitz</title>
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin-assets/index.css') }}">
+</head>
+<body class="admin-body">
+
+  <div class="admin-layout">
+    <aside class="admin-sidebar" id="admin-sidebar">
+      <div class="admin-brand">
+        <span>Platform Admin</span>
+      </div>
+
+      <nav class="admin-nav">
+        {# F3a: minimal nav — the full platform dashboard/sections are F6. #}
+        <a href="{{ url_for('master.master_spa_shell', path='catalogue') }}" class="admin-nav-link"><i class="fa-solid fa-tags fa-fw"></i>Quick Book Catalogue</a>
+      </nav>
+
+      <div class="admin-sidebar-footer">
+        <a href="{{ url_for('auth.logout') }}" class="admin-nav-link"><i class="fa-solid fa-right-from-bracket fa-fw"></i>Logout</a>
+      </div>
+    </aside>
+
+    <main class="admin-main-content">
+      {# Root element the master-admin React app mounts onto (main.jsx). #}
+      <div id="master-app-root"></div>
+    </main>
+  </div>
+
+  {% if config.VITE_DEV_SERVER %}
+  {# Dev: load React from the Vite dev server for hot-reload (needs `npm run dev` on :5173). #}
+  <script type="module">
+    import RefreshRuntime from '{{ config.VITE_DEV_SERVER_URL }}/@react-refresh'
+    RefreshRuntime.injectIntoGlobalHook(window)
+    window.$RefreshReg$ = () => {}
+    window.$RefreshSig$ = () => (type) => type
+    window.__vite_plugin_react_preamble_installed__ = true
+  </script>
+
+  <script type="module" src="{{ config.VITE_DEV_SERVER_URL }}/@vite/client"></script>
+  <script type="module" src="{{ config.VITE_DEV_SERVER_URL }}/src/main.jsx"></script>
+  {% else %}
+  {# Prod: load the built bundle so the master area runs on Flask alone (no Vite needed). #}
+  <script type="module" src="{{ url_for('static', filename='admin-assets/index.js') }}"></script>
+  {% endif %}
+
+</body>
+</html>

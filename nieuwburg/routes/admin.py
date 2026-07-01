@@ -40,9 +40,9 @@ def master_admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not is_master_admin(current_user):
-            # JSON for API callers, redirect for page loads — mirror the app's
-            # existing 403 conventions.
-            if request.path.startswith('/api') or request.path.startswith('/admin/api'):
+            # JSON 403 for API callers (covers /api/... and /master-admin/api/...),
+            # redirect for page loads. Applies to anonymous + non-master users alike.
+            if request.path.startswith('/api') or '/api/' in request.path:
                 return jsonify({"message": "Master-admin access required."}), 403
             flash('You do not have permission to access this page.', 'error')
             return redirect(url_for('main.index'))

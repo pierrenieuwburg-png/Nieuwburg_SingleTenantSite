@@ -98,12 +98,14 @@ def login():
             # --- THE TRAFFIC COP LOGIC ---
             target_url = url_for('main.index')
 
-            if user.role == 'admin':
+            if user.role == 'master_admin':
+                target_url = url_for('master.master_spa_shell', path='')
+            elif user.role == 'admin':
                 target_url = url_for('admin.admin_spa_shell', path='dashboard')
             elif user.role == 'staff':
                 target_url = url_for('main.staff_dashboard')
             elif user.role == 'client':
-                target_url = request.args.get('next') or '/client/dashboard' 
+                target_url = request.args.get('next') or '/client/dashboard'
 
             if request.is_json: return jsonify({'status': 'ok', 'redirect': target_url})
             return redirect(target_url)

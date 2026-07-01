@@ -127,12 +127,17 @@ def create_app(config_class=Config):
         from .routes.api import bp as api_bp
         from .routes.client import bp as client_bp
         from .routes.marketplace import bp as market_bp
+        from .routes.master import bp as master_bp
         app.register_blueprint(main_bp)
         app.register_blueprint(auth_bp, url_prefix='/auth')
         app.register_blueprint(admin_bp, url_prefix='/admin')
         app.register_blueprint(api_bp)
         app.register_blueprint(client_bp)
         app.register_blueprint(market_bp)
+        # Master-admin (platform) area (F3). Deliberately NOT csrf-exempt — the
+        # React master UI sends X-CSRFToken on mutations (D3); don't widen the
+        # blanket api_bp/market_bp exemption.
+        app.register_blueprint(master_bp, url_prefix='/master-admin')
 
         csrf.exempt(api_bp)
         csrf.exempt(market_bp)

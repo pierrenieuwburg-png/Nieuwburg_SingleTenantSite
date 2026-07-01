@@ -1,5 +1,5 @@
 from nieuwburg import create_app, db
-from nieuwburg.models import User, Profile, Tenant, BusinessSettings
+from nieuwburg.models import User, Profile, Tenant, BusinessSettings, MarketplaceService, MarketplaceServicePrice
 from flask_migrate import upgrade
 
 app = create_app()
@@ -118,6 +118,40 @@ with app.app_context():
         ))
     else:
         provider_profile.tenant_id = provider_tenant.id
+
+    # 5. Seed a few PLATFORM Quick Book catalogue items (master-created) so the
+    # Quick Book payment loop can transact in testing. Names match what the
+    # booking modal sends (openBooking('Cleaning') / ('Gardening')).
+    def seed_mkt_service(name, **kwargs):
+        svc = MarketplaceService.query.filter_by(name=name).first()
+        if not svc:
+            svc = MarketplaceService(name=name, **kwargs)
+            db.session.add(svc)
+            db.session.flush()
+            print(f"Created MarketplaceService: {name}")
+        return svc
+
+    # Gardening = one-off flat price
+    seed_mkt_service(
+        "Gardening", category="Outdoor", is_active=True, is_quick_bookable=True,
+        pricing_mode="flat", flat_price=600.0,
+        created_by_tenant_id=None, review_status="approved",
+    )
+
+    # Cleaning = frequency-based (rows match the modal's frequency options exactly)
+    cleaning = seed_mkt_service(
+        "Cleaning", category="Home", is_active=True, is_quick_bookable=True,
+        pricing_mode="frequency",
+        created_by_tenant_id=None, review_status="approved",
+    )
+    for freq, price in {"Once-off": 450.0, "Weekly": 350.0,
+                        "Bi-Weekly": 380.0, "Monthly": 400.0}.items():
+        if not MarketplaceServicePrice.query.filter_by(
+            marketplace_service_id=cleaning.id, frequency=freq
+        ).first():
+            db.session.add(MarketplaceServicePrice(
+                marketplace_service_id=cleaning.id, frequency=freq, price=price
+            ))
 
     # Save everything!
     db.session.commit()

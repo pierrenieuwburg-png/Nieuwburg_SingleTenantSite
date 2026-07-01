@@ -3,7 +3,7 @@ import re
 from datetime import date, datetime, timedelta
 from math import radians, cos, sin, asin, sqrt
 from .. import db, socketio
-from ..models import BusinessSettings, LeadDispatch, Job, QuoteRequest, ActivityLog
+from ..models import BusinessSettings, LeadDispatch, Job, QuoteRequest, ActivityLog, MarketplaceService, MarketplaceServicePrice
 from sqlalchemy import and_, or_, exists
 from flask import current_app, render_template
 from flask_mail import Message
@@ -183,23 +183,41 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 def resolve_price_for_job(job):
     """Single seam: 'what does this Quick Book job cost, in ZAR?'
 
-    Pricing is master-admin-controlled and service-dependent (frequency-based,
-    one-off-flat, or one-off-with-inputs) — it is NOT decided here, and is NOT a
-    hard-coded rate or an assumed-frequency formula. The price is resolved from
-    pricing inputs carried ON THE JOB, which are populated once the master-admin
-    pricing catalog + frequency capture exist (see BACKLOG #7).
+    Resolves from the platform MarketplaceService (F2/#7) captured on the Job:
+    a 'flat' item returns its flat_price; a 'frequency' item returns the price
+    row matching the Job's frequency. Pricing is master-admin-controlled, NOT
+    decided here — this only looks up the stored catalogue price. Answer-driven
+    pricing (extras, home-size -> hours, one-off-with-inputs) is the F7 rule
+    engine and is deliberately NOT resolved here.
 
-    Until those inputs exist there is no usable price for any job, so this
-    returns None and the caller MUST refuse (charge nothing). Returns a positive
-    float amount in ZAR, or None if no usable price is available yet.
+    Returns a positive float amount in ZAR, or None when there is no usable
+    price (missing/inactive/unapproved/non-bookable item, no matching frequency
+    row, or a zero/negative/null price) — in which case the caller MUST refuse
+    (charge nothing).
 
     Lives here (not in client.py) so both the payment-init endpoint and the
     timeout sweep can import it without a circular import.
     """
-    # TODO (BACKLOG #7): resolve from the master-admin pricing catalog using the
-    # job's service category + the frequency/inputs captured on the Job. No such
-    # inputs are stored on the Job yet, so no price is resolvable today — every
-    # job is currently unpriced and the payment-init endpoint refuses.
+    if not job.marketplace_service_id:
+        return None
+
+    svc = db.session.get(MarketplaceService, job.marketplace_service_id)
+    # Only an active, approved, Quick-Bookable item can be charged.
+    if (svc is None or not svc.is_active or not svc.is_quick_bookable
+            or svc.review_status != 'approved'):
+        return None
+
+    if svc.pricing_mode == 'flat':
+        return svc.flat_price if (svc.flat_price and svc.flat_price > 0) else None
+
+    if svc.pricing_mode == 'frequency':
+        if not job.frequency:
+            return None
+        row = MarketplaceServicePrice.query.filter_by(
+            marketplace_service_id=svc.id, frequency=job.frequency
+        ).first()
+        return row.price if (row and row.price and row.price > 0) else None
+
     return None
 
 

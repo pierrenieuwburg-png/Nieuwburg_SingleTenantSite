@@ -304,6 +304,14 @@ class Job(db.Model):
         backref=db.backref('jobs_assigned', lazy=True))
     service_id = db.Column(db.Integer, db.ForeignKey('service_item.id'), nullable=True)
     service = db.relationship('ServiceItem', back_populates='jobs')
+
+    # Quick Book pricing inputs (F2/#7): the chosen PLATFORM catalogue item +
+    # frequency, captured at booking so resolve_price_for_job has explicit inputs.
+    # Separate from service_id (the per-tenant ServiceItem link) — do not conflate.
+    marketplace_service_id = db.Column(db.Integer, db.ForeignKey('marketplace_service.id'), nullable=True)
+    frequency = db.Column(db.String(50), nullable=True)
+    marketplace_service = db.relationship('MarketplaceService')
+
     client_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     client = db.relationship('User', foreign_keys=[client_id], backref=db.backref('jobs_as_client', lazy=True))
     
@@ -436,6 +444,53 @@ class ServicePrice(db.Model):
     price = db.Column(db.Float, nullable=False, default=0.0)
     service_item_id = db.Column(db.Integer, db.ForeignKey('service_item.id'), nullable=False)
     service_item = db.relationship('ServiceItem', back_populates='prices')
+
+
+class MarketplaceService(db.Model):
+    """Platform-global marketplace catalogue item (F2 / BACKLOG #7).
+
+    DISTINCT from the per-tenant ServiceCategory / ServiceItem / ServicePrice
+    (which serve providers' OWN quotes) — those are not reused or FK'd into here.
+    No `tenant_id` scoping column: this catalogue is platform-wide.
+    `created_by_tenant_id` is OWNERSHIP only (NULL = master/platform-created) — it
+    is NOT a scoping column. Unified model: an item may be Quick-Bookable
+    (master-priced) or quote-only, master- or tenant-created (F4 review queue).
+
+    This increment stores only a flat or per-frequency price. Answer-driven
+    pricing (home-size -> hours, extras, etc.) is the F7 rule engine — NOT here.
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), nullable=False, unique=True)
+    # Display grouping only — NOT a link to the per-tenant ServiceCategory.
+    category = db.Column(db.String(100), nullable=True)
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
+    is_quick_bookable = db.Column(db.Boolean, nullable=False, default=False)
+    # Only meaningful when is_quick_bookable: 'frequency' | 'flat'
+    # ('one-off-with-inputs' deferred to F7).
+    pricing_mode = db.Column(db.String(20), nullable=True)
+    flat_price = db.Column(db.Float, nullable=True)  # used when pricing_mode == 'flat'
+    # OWNERSHIP (not scoping): NULL = master/platform-created; set = creating tenant (F4).
+    created_by_tenant_id = db.Column(db.Integer, db.ForeignKey('tenant.id'), nullable=True)
+    # 'pending' | 'approved' | 'rejected' — master-created are 'approved';
+    # tenant-created start 'pending' (F4 review queue).
+    review_status = db.Column(db.String(20), nullable=False, default='approved')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    prices = db.relationship('MarketplaceServicePrice', back_populates='service',
+                             lazy=True, cascade="all, delete-orphan")
+
+
+class MarketplaceServicePrice(db.Model):
+    """Per-frequency price rows for a frequency-mode MarketplaceService."""
+    id = db.Column(db.Integer, primary_key=True)
+    marketplace_service_id = db.Column(db.Integer, db.ForeignKey('marketplace_service.id'), nullable=False)
+    frequency = db.Column(db.String(50), nullable=False)
+    price = db.Column(db.Float, nullable=False)
+    service = db.relationship('MarketplaceService', back_populates='prices')
+
+    __table_args__ = (
+        db.UniqueConstraint('marketplace_service_id', 'frequency', name='_mkt_service_frequency_uc'),
+    )
 
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)

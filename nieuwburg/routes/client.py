@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request, render_template, Response, current_app, url_for
 from flask_login import login_required, current_user
 from sqlalchemy.orm import joinedload
-from ..models import QuoteRequest, Quote, Invoice, Job, Profile, BusinessSettings
+from ..models import QuoteRequest, Quote, Invoice, Job, Profile, BusinessSettings, MarketplaceService
 from .. import db
 from .utils import dispatch_live_job
 from datetime import datetime
@@ -235,33 +235,43 @@ def create_booking():
     if not check_client_access(): return jsonify({"message": "Unauthorized"}), 403
     
     data = request.json
-    service_type = data.get('service_type') # Should now pass the ServiceItem ID or Name
+    service_type = data.get('service_type') # platform Quick Book service NAME (e.g. 'Cleaning')
     date_str = data.get('date')
     time_str = data.get('time')
     notes = data.get('notes', '')
-    
+    frequency = data.get('frequency')  # captured onto the Job for pricing (F2/#7)
+
     # Grab map coordinates
-    lat = data.get('latitude') 
+    lat = data.get('latitude')
     lng = data.get('longitude')
 
     if not service_type or not date_str:
         return jsonify({"message": "Service and Date are required"}), 400
 
     try:
-        # Look up the actual ServiceItem to link to the Job
-        service_item = ServiceItem.query.filter_by(name=service_type).first()
-        
+        # Resolve the PLATFORM Quick Book catalogue item (F2/#7) by the booked name,
+        # and store it + the chosen frequency on the Job so resolve_price_for_job can
+        # price it. NOTE: this replaces a previously-broken per-tenant ServiceItem
+        # lookup (ServiceItem was never imported here -> create_booking raised
+        # NameError on every call). The per-tenant ServiceItem is NOT the Quick Book
+        # catalogue, so service_id stays None pre-match.
+        mkt_service = MarketplaceService.query.filter_by(
+            name=service_type, is_quick_bookable=True, is_active=True
+        ).first()
+
         # Create a Job with NO tenant yet (Status = Searching)
         new_job = Job(
             client_id=current_user.id,
             tenant_id=None, # Remains None until a Pro accepts it!
-            service_id=service_item.id if service_item else None,
+            service_id=None,  # per-tenant ServiceItem link N/A for a platform Quick Book job
+            marketplace_service_id=mkt_service.id if mkt_service else None,
+            frequency=frequency,
             scheduled_date=datetime.strptime(date_str, "%Y-%m-%d").date(),
             start_time=datetime.strptime(time_str, "%H:%M").time() if time_str else None,
             status=Job.STATUS_SEARCHING,
             notes=f"{notes} (Awaiting Pro Match)",
             latitude=lat,
-            longitude=lng 
+            longitude=lng
         )
         
         db.session.add(new_job)
